@@ -194,7 +194,6 @@ export default function ReviewPage() {
           if (genRes.ok) {
             const { comment: suggested } = await genRes.json();
             setSuggestedComment(suggested);
-            setComment(suggested);
           }
         } catch {
           // Silent fail — renter can type their own comment
@@ -436,7 +435,9 @@ export default function ReviewPage() {
                   onChange={(e) => setComment(e.target.value)}
                   disabled={commentLoading}
                   placeholder={
-                    commentLoading ? "Loading suggestion..." : "Share your experience..."
+                    commentLoading
+                      ? "Loading suggestion..."
+                      : suggestedComment || "Share your experience..."
                   }
                   rows={4}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
