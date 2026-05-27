@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx next:*)",
+      "Bash(npm run:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npx kill-port:*)",
+      "Bash(taskkill //F //IM node.exe)",
+      "Bash(ipconfig)",
+      "Bash(vercel --version)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\avaya\\\\Downloads\\\\PMHappy-20260527T145810Z-3-001\\\\PMHappy\\\\app\" -Recurse -Directory)",
+      "Bash(Select-Object FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\avaya\\\\Downloads\\\\PMHappy-20260527T145810Z-3-001\\\\PMHappy\" -Recurse -Directory)",
+      "Bash(Select-Object -First 20 FullName)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\avaya\\\\Downloads\\\\PMHappy-20260527T145810Z-3-001\\\\PMHappy\" -Recurse -Directory | Select-Object -First 30 | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\avaya\\\\Downloads\\\\PMHappy-20260527T145810Z-3-001\\\\PMHappy\\\\app\\\\admin\" -Recurse | ForEach-Object { $_.FullName -replace [regex]::Escape\\(\"C:\\\\Users\\\\avaya\\\\Downloads\\\\PMHappy-20260527T145810Z-3-001\\\\PMHappy\"\\), \"\" })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\avaya\\\\Downloads\\\\PMHappy-20260527T145810Z-3-001\\\\PMHappy\\\\app\\\\api\" -Recurse | ForEach-Object { $_.FullName -replace [regex]::Escape\\(\"C:\\\\Users\\\\avaya\\\\Downloads\\\\PMHappy-20260527T145810Z-3-001\\\\PMHappy\"\\), \"\" })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\avaya\\\\Downloads\\\\PMHappy-20260527T145810Z-3-001\\\\PMHappy\\\\supabase\" -Recurse -File | ForEach-Object { $_.FullName })",
+      "PowerShell(Get-ChildItem -Path \"C:\\\\Users\\\\avaya\\\\Downloads\\\\PMHappy-20260527T145810Z-3-001\\\\PMHappy\\\\lib\" -File | ForEach-Object { $_.Name })"
+    ]
+  }
+}
