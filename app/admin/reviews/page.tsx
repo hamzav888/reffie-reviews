@@ -2,45 +2,40 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase";
+import { useProperty } from "@/lib/property-context";
 import type { Tables } from "@/lib/database.types";
 
 type ReviewRow = Tables<"reviews">;
 
 export default function ReviewsPage() {
   const supabase = createBrowserClient();
+  const { selectedProperty, loading: propertyLoading } = useProperty();
 
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
 
   const [filterRating, setFilterRating] = useState<number | "all">("all");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
 
+  // Re-fetch whenever the selected property changes
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: propData } = await supabase
-        .from("properties")
-        .select("id")
-        .limit(1)
-        .single();
+    if (!selectedProperty) return;
 
-      if (!propData) {
-        setLoading(false);
-        return;
-      }
-
-      const { data: reviewData } = await supabase
+    const fetchReviews = async () => {
+      setReviewsLoading(true);
+      const { data } = await supabase
         .from("reviews")
         .select("*")
-        .eq("property_id", propData.id)
+        .eq("property_id", selectedProperty.id)
         .order("created_at", { ascending: false });
 
-      setReviews(reviewData ?? []);
-      setLoading(false);
+      setReviews(data ?? []);
+      setReviewsLoading(false);
     };
 
-    fetchData();
-  }, [supabase]);
+    fetchReviews();
+  }, [selectedProperty, supabase]);
 
   const filteredReviews = useMemo(() => {
     return reviews
@@ -66,10 +61,21 @@ export default function ReviewsPage() {
     setFilterDateTo("");
   };
 
-  if (loading) {
+  if (propertyLoading) {
     return (
       <div className="animate-pulse text-gray-400 py-8 text-sm">
-        Loading reviews...
+        Loading...
+      </div>
+    );
+  }
+
+  if (!selectedProperty) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500 text-sm mb-3">No property selected.</p>
+        <a href="/admin/settings" className="text-[#10BD91] text-sm underline">
+          Go to Settings →
+        </a>
       </div>
     );
   }
@@ -77,7 +83,7 @@ export default function ReviewsPage() {
   return (
     <div>
       <h1 className="text-xl font-semibold text-gray-900 mb-6">
-        All Reviews
+        Reviews — {selectedProperty.name}
       </h1>
 
       {/* Filters */}
@@ -145,7 +151,11 @@ export default function ReviewsPage() {
 
       {/* Table */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-        {filteredReviews.length === 0 ? (
+        {reviewsLoading ? (
+          <div className="px-6 py-10 text-center text-sm text-gray-400 animate-pulse">
+            Loading reviews...
+          </div>
+        ) : filteredReviews.length === 0 ? (
           <div className="px-6 py-10 text-center text-sm text-gray-400">
             {reviews.length === 0
               ? "No reviews yet."

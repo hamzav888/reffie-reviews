@@ -2,50 +2,41 @@
 
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase";
+import { useProperty } from "@/lib/property-context";
 import type { Tables } from "@/lib/database.types";
 
-type PropertyRow = Tables<"properties">;
 type ReviewRow = Tables<"reviews">;
 
 export default function DashboardPage() {
   const supabase = createBrowserClient();
+  const { selectedProperty, loading: propertyLoading } = useProperty();
 
-  const [property, setProperty] = useState<PropertyRow | null>(null);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
 
+  // Re-fetch reviews whenever the selected property changes
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: propData } = await supabase
-        .from("properties")
-        .select("*")
-        .limit(1)
-        .single();
+    if (!selectedProperty) return;
 
-      if (!propData) {
-        setLoading(false);
-        return;
-      }
-
-      setProperty(propData);
-
-      const { data: reviewData } = await supabase
+    const fetchReviews = async () => {
+      setReviewsLoading(true);
+      const { data } = await supabase
         .from("reviews")
         .select("*")
-        .eq("property_id", propData.id)
+        .eq("property_id", selectedProperty.id)
         .order("created_at", { ascending: false });
 
-      setReviews(reviewData ?? []);
-      setLoading(false);
+      setReviews(data ?? []);
+      setReviewsLoading(false);
     };
 
-    fetchData();
-  }, [supabase]);
+    fetchReviews();
+  }, [selectedProperty, supabase]);
 
   const shareableLink = `${
     process.env.NEXT_PUBLIC_APP_URL ?? ""
-  }/r/${property?.slug ?? ""}`;
+  }/r/${selectedProperty?.slug ?? ""}`;
 
   const handleCopyLink = async () => {
     try {
@@ -57,7 +48,7 @@ export default function DashboardPage() {
     }
   };
 
-  if (loading) {
+  if (propertyLoading) {
     return (
       <div className="animate-pulse text-gray-400 py-8 text-sm">
         Loading...
@@ -65,16 +56,13 @@ export default function DashboardPage() {
     );
   }
 
-  if (!property) {
+  if (!selectedProperty) {
     return (
       <div className="text-center py-12">
         <p className="text-gray-500 text-sm mb-3">
           No property configured yet.
         </p>
-        <a
-          href="/admin/settings"
-          className="text-[#10BD91] text-sm underline"
-        >
+        <a href="/admin/settings" className="text-[#10BD91] text-sm underline">
           Go to Settings to set up your property →
         </a>
       </div>
@@ -94,12 +82,14 @@ export default function DashboardPage() {
     <div>
       {/* Header row */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h1 className="text-xl font-semibold text-gray-900">{property.name}</h1>
+        <h1 className="text-xl font-semibold text-gray-900">
+          {selectedProperty.name}
+        </h1>
 
         {/* Shareable link */}
         <div className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-3 py-2">
           <span className="text-xs text-gray-500 font-mono truncate max-w-[180px]">
-            /r/{property.slug}
+            /r/{selectedProperty.slug}
           </span>
           <button
             onClick={handleCopyLink}
@@ -147,7 +137,11 @@ export default function DashboardPage() {
           </h2>
         </div>
 
-        {reviews.length === 0 ? (
+        {reviewsLoading ? (
+          <div className="px-6 py-10 text-center text-sm text-gray-400 animate-pulse">
+            Loading reviews...
+          </div>
+        ) : reviews.length === 0 ? (
           <div className="px-6 py-10 text-center text-sm text-gray-400">
             No reviews yet. Share your link to start collecting feedback.
           </div>

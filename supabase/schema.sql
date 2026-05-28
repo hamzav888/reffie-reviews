@@ -61,11 +61,26 @@ CREATE POLICY "Public can read properties"
   ON properties FOR SELECT
   USING (true);
 
--- Only authenticated users can modify properties
-CREATE POLICY "Authenticated users can manage properties"
-  ON properties FOR ALL
-  USING (auth.role() = 'authenticated')
+-- Authenticated users can create new properties
+CREATE POLICY "Authenticated users can insert properties"
+  ON properties FOR INSERT
   WITH CHECK (auth.role() = 'authenticated');
+
+-- Only the assigned manager can update their property
+CREATE POLICY "Managers can update their properties"
+  ON properties FOR UPDATE
+  USING (EXISTS (
+    SELECT 1 FROM property_managers
+    WHERE property_id = properties.id AND user_id = auth.uid()
+  ));
+
+-- Only the assigned manager can delete their property
+CREATE POLICY "Managers can delete their properties"
+  ON properties FOR DELETE
+  USING (EXISTS (
+    SELECT 1 FROM property_managers
+    WHERE property_id = properties.id AND user_id = auth.uid()
+  ));
 
 -- Reviews can be inserted by anyone (public form)
 -- but only through the API (service role), not directly
@@ -74,7 +89,33 @@ CREATE POLICY "Service role can manage reviews"
   USING (true)
   WITH CHECK (true);
 
--- Authenticated users can read all reviews
+-- Authenticated users can read reviews for properties they manage
 CREATE POLICY "Authenticated users can read reviews"
   ON reviews FOR SELECT
   USING (auth.role() = 'authenticated');
+
+-- ============================================
+-- PROPERTY MANAGERS TABLE
+-- ============================================
+CREATE TABLE property_managers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  property_id UUID NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, property_id)
+);
+
+CREATE INDEX property_managers_user_id_idx ON property_managers(user_id);
+CREATE INDEX property_managers_property_id_idx ON property_managers(property_id);
+
+ALTER TABLE property_managers ENABLE ROW LEVEL SECURITY;
+
+-- Users can only see their own manager rows
+CREATE POLICY "Users can read own manager rows"
+  ON property_managers FOR SELECT
+  USING (user_id = auth.uid());
+
+-- Users can only insert rows for themselves
+CREATE POLICY "Users can insert own manager rows"
+  ON property_managers FOR INSERT
+  WITH CHECK (user_id = auth.uid());
