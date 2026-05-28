@@ -41,20 +41,30 @@ export function PropertyProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProperties = useCallback(async () => {
-    // Query through property_managers so RLS (user_id = auth.uid()) scopes to
-    // only the properties this user manages.
-    const { data } = await supabase
+    // Step 1: get the property IDs this user manages.
+    // RLS on property_managers enforces user_id = auth.uid(), so this is
+    // already scoped to the current user — no explicit filter needed.
+    const { data: managerRows } = await supabase
       .from("property_managers")
-      .select("properties(*)")
+      .select("property_id")
       .order("created_at", { ascending: true });
 
-    // Flatten the join result and drop any nulls
-    const props = (data ?? [])
-      .map((row) => row.properties)
-      .filter(
-        (p): p is PropertyRow =>
-          p !== null && typeof p === "object" && !Array.isArray(p)
-      );
+    const ids = (managerRows ?? []).map((r) => r.property_id);
+
+    // Step 2: fetch the full property rows by those IDs.
+    // Using a separate .in() query avoids the embedded-join response shape
+    // ambiguity (isOneToOne: false causes supabase-js to return PropertyRow[]
+    // per row, which the old flatten filter would silently discard).
+    let props: PropertyRow[] = [];
+    if (ids.length > 0) {
+      const { data: propsData } = await supabase
+        .from("properties")
+        .select("*")
+        .in("id", ids)
+        .order("created_at", { ascending: true });
+
+      props = propsData ?? [];
+    }
 
     setProperties(props);
 
