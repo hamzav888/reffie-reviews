@@ -33,10 +33,15 @@ function PropertyForm({
   const [brandColor, setBrandColor] = useState(
     initial?.brand_color ?? DEFAULT_BRAND_COLOR
   );
-  const [placeId, setPlaceId] = useState(() => {
+  const [googleUrlMode, setGoogleUrlMode] = useState<"place_id" | "direct_url">(() => {
+    if (!initial?.google_review_url) return "place_id";
+    return initial.google_review_url.includes("placeid=") ? "place_id" : "direct_url";
+  });
+  const [googleInput, setGoogleInput] = useState(() => {
     if (!initial?.google_review_url) return "";
     const match = initial.google_review_url.match(/placeid=([^&]+)/);
-    return match ? match[1] : "";
+    if (match) return match[1];
+    return initial.google_review_url;
   });
   const [reviewPrompt, setReviewPrompt] = useState(
     initial?.review_prompt ?? DEFAULT_REVIEW_PROMPT
@@ -65,8 +70,10 @@ function PropertyForm({
     setSaving(true);
     setErrorMsg(null);
 
-    const googleReviewUrl = placeId
-      ? `https://search.google.com/local/writereview?placeid=${placeId}`
+    const googleReviewUrl = googleInput
+      ? googleUrlMode === "place_id"
+        ? `https://search.google.com/local/writereview?placeid=${googleInput}`
+        : googleInput
       : "";
 
     const payload = {
@@ -218,29 +225,73 @@ function PropertyForm({
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-700">Google Reviews</h2>
 
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">
-            Google Place ID
-          </label>
-          <input
-            type="text"
-            value={placeId}
-            onChange={(e) => setPlaceId(e.target.value.trim())}
-            placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
-            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#10BD91]/20"
-          />
-          <p className="text-xs text-gray-400 mt-1.5">
-            Find your Place ID at{" "}
-            <a
-              href="https://developers.google.com/maps/documentation/places/web-service/place-id"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#10BD91] underline"
-            >
-              developers.google.com
-            </a>
-          </p>
+        {/* Mode selector */}
+        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+          <button
+            type="button"
+            onClick={() => { setGoogleUrlMode("place_id"); setGoogleInput(""); }}
+            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+              googleUrlMode === "place_id"
+                ? "bg-[#10BD91] text-white"
+                : "bg-white text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            Place ID
+          </button>
+          <button
+            type="button"
+            onClick={() => { setGoogleUrlMode("direct_url"); setGoogleInput(""); }}
+            className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-200 ${
+              googleUrlMode === "direct_url"
+                ? "bg-[#10BD91] text-white"
+                : "bg-white text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            Direct URL
+          </button>
         </div>
+
+        {googleUrlMode === "place_id" ? (
+          <div>
+            <label className="text-xs font-medium text-gray-600 block mb-1">
+              Google Place ID
+            </label>
+            <input
+              type="text"
+              value={googleInput}
+              onChange={(e) => setGoogleInput(e.target.value.trim())}
+              placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#10BD91]/20"
+            />
+            <p className="text-xs text-gray-400 mt-1.5">
+              Find your Place ID at{" "}
+              <a
+                href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#10BD91] underline"
+              >
+                developers.google.com
+              </a>
+            </p>
+          </div>
+        ) : (
+          <div>
+            <label className="text-xs font-medium text-gray-600 block mb-1">
+              Google Review URL
+            </label>
+            <input
+              type="url"
+              value={googleInput}
+              onChange={(e) => setGoogleInput(e.target.value.trim())}
+              placeholder="https://g.page/r/..."
+              className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#10BD91]/20"
+            />
+            <p className="text-xs text-gray-400 mt-1.5">
+              Paste any Google review link directly.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* ── Review Prompts ── */}

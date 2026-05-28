@@ -20,6 +20,7 @@ type PropertyWithStats = {
   review_count: number;
   manager_ids: string[];
   review_flow_enabled: boolean;
+  google_review_url: string;
 };
 
 type UserWithProperties = {
@@ -395,7 +396,16 @@ function PropertyForm({
   const [brandColor, setBrandColor] = useState(
     initial?.brand_color ?? DEFAULT_BRAND_COLOR
   );
-  const [placeId, setPlaceId] = useState("");
+  const [googleUrlMode, setGoogleUrlMode] = useState<"place_id" | "direct_url">(() => {
+    if (!initial?.google_review_url) return "place_id";
+    return initial.google_review_url.includes("placeid=") ? "place_id" : "direct_url";
+  });
+  const [googleInput, setGoogleInput] = useState(() => {
+    if (!initial?.google_review_url) return "";
+    const match = initial.google_review_url.match(/placeid=([^&]+)/);
+    if (match) return match[1];
+    return initial.google_review_url;
+  });
   const [reviewFlowEnabled, setReviewFlowEnabled] = useState(
     initial?.review_flow_enabled ?? true
   );
@@ -407,11 +417,11 @@ function PropertyForm({
     setSaving(true);
     setErr(null);
 
-    const googleReviewUrl = placeId
-      ? `https://search.google.com/local/writereview?placeid=${placeId}`
-      : initial
-      ? undefined // keep existing value on edit if not changed
-      : "";
+    const googleReviewUrl = googleInput
+      ? googleUrlMode === "place_id"
+        ? `https://search.google.com/local/writereview?placeid=${googleInput}`
+        : googleInput
+      : undefined; // keep existing value when left blank
 
     try {
       if (initial) {
@@ -422,7 +432,7 @@ function PropertyForm({
           brand_color: brandColor,
           review_flow_enabled: reviewFlowEnabled,
         };
-        if (placeId) body.google_review_url = googleReviewUrl;
+        if (googleInput) body.google_review_url = googleReviewUrl;
 
         const res = await fetch("/api/admin/super", {
           method: "PATCH",
@@ -446,7 +456,7 @@ function PropertyForm({
             name,
             slug,
             brand_color: brandColor,
-            google_review_url: googleReviewUrl,
+            google_review_url: googleReviewUrl ?? "",
             review_flow_enabled: reviewFlowEnabled,
           }),
         });
@@ -497,41 +507,73 @@ function PropertyForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">
-            Brand Color
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              value={brandColor}
-              onChange={(e) => setBrandColor(e.target.value)}
-              className="w-8 h-8 rounded border border-gray-200 cursor-pointer p-0.5"
-            />
-            <input
-              type="text"
-              value={brandColor}
-              onChange={(e) => setBrandColor(e.target.value)}
-              className="flex-1 rounded-lg border border-gray-200 px-2 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#10BD91]/20"
-            />
-          </div>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">
-            Google Place ID{" "}
-            {initial && (
-              <span className="font-normal text-gray-400">(leave blank to keep)</span>
-            )}
-          </label>
+      <div>
+        <label className="text-xs font-medium text-gray-600 block mb-1">
+          Brand Color
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            type="color"
+            value={brandColor}
+            onChange={(e) => setBrandColor(e.target.value)}
+            className="w-8 h-8 rounded border border-gray-200 cursor-pointer p-0.5"
+          />
           <input
             type="text"
-            value={placeId}
-            onChange={(e) => setPlaceId(e.target.value.trim())}
-            placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#10BD91]/20"
+            value={brandColor}
+            onChange={(e) => setBrandColor(e.target.value)}
+            className="flex-1 rounded-lg border border-gray-200 px-2 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#10BD91]/20"
           />
         </div>
+      </div>
+
+      {/* Google Review URL */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-3">
+          <label className="text-xs font-medium text-gray-600">
+            Google Review URL
+          </label>
+          <div className="inline-flex rounded-md border border-gray-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => { setGoogleUrlMode("place_id"); setGoogleInput(""); }}
+              className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                googleUrlMode === "place_id"
+                  ? "bg-[#10BD91] text-white"
+                  : "bg-white text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              Place ID
+            </button>
+            <button
+              type="button"
+              onClick={() => { setGoogleUrlMode("direct_url"); setGoogleInput(""); }}
+              className={`px-2.5 py-1 text-xs font-medium transition-colors border-l border-gray-200 ${
+                googleUrlMode === "direct_url"
+                  ? "bg-[#10BD91] text-white"
+                  : "bg-white text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              Direct URL
+            </button>
+          </div>
+          {initial && (
+            <span className="text-xs text-gray-400">leave blank to keep</span>
+          )}
+        </div>
+        <input
+          type="text"
+          value={googleInput}
+          onChange={(e) => setGoogleInput(e.target.value.trim())}
+          placeholder={
+            googleUrlMode === "place_id"
+              ? "ChIJN1t_tDeuEmsRUsoyG83frY4"
+              : "https://g.page/r/..."
+          }
+          className={`w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#10BD91]/20 ${
+            googleUrlMode === "place_id" ? "font-mono" : ""
+          }`}
+        />
       </div>
 
       <Toggle

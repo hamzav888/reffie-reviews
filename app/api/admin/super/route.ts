@@ -108,6 +108,7 @@ export async function GET(req: Request) {
       review_count: reviewCountMap[p.id] ?? 0,
       manager_ids: managersByProp[p.id] ?? [],
       review_flow_enabled: p.review_flow_enabled,
+      google_review_url: p.google_review_url,
     }));
 
     const usersWithProperties = users.map((u) => ({
