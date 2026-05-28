@@ -53,41 +53,7 @@ export default function DashboardPage() {
     }
   };
 
-  if (propertyLoading) {
-    return (
-      <div className="animate-pulse text-gray-400 py-8 text-sm">
-        Loading...
-      </div>
-    );
-  }
-
-  if (!selectedProperty) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 text-sm mb-3">
-          No property configured yet.
-        </p>
-        <a href="/admin/settings" className="text-[#10BD91] text-sm underline">
-          Go to Settings to set up your property →
-        </a>
-      </div>
-    );
-  }
-
-  const handleSort = (col: SortColumn) => {
-    if (sortColumn === col) {
-      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortColumn(col);
-      setSortDirection("asc");
-    }
-  };
-
-  const sortIndicator = (col: SortColumn) => {
-    if (sortColumn !== col) return <span className="text-gray-300 ml-1">↕</span>;
-    return <span className="ml-1">{sortDirection === "asc" ? "↑" : "↓"}</span>;
-  };
-
+  // Must be before any early returns — hooks cannot be called conditionally
   const sortedReviews = useMemo(() => {
     const sorted = [...reviews];
     sorted.sort((a, b) => {
@@ -130,6 +96,41 @@ export default function DashboardPage() {
     });
     return sorted;
   }, [reviews, sortColumn, sortDirection]);
+
+  if (propertyLoading) {
+    return (
+      <div className="animate-pulse text-gray-400 py-8 text-sm">
+        Loading...
+      </div>
+    );
+  }
+
+  if (!selectedProperty) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500 text-sm mb-3">
+          No property configured yet.
+        </p>
+        <a href="/admin/settings" className="text-[#10BD91] text-sm underline">
+          Go to Settings to set up your property →
+        </a>
+      </div>
+    );
+  }
+
+  const handleSort = (col: SortColumn) => {
+    if (sortColumn === col) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(col);
+      setSortDirection("asc");
+    }
+  };
+
+  const sortIndicator = (col: SortColumn) => {
+    if (sortColumn !== col) return <span className="text-gray-300 ml-1">↕</span>;
+    return <span className="ml-1">{sortDirection === "asc" ? "↑" : "↓"}</span>;
+  };
 
   // Stats — computed in JS, no extra queries
   const totalReviews = reviews.length;
