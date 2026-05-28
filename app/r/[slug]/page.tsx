@@ -245,7 +245,7 @@ export default function ReviewPage() {
     }
   };
 
-  const brandColor = property?.brand_color ?? "#2563EB";
+  const brandColor = property?.brand_color ?? "#10BD91";
 
   // ── Loading / Error states ──
   if (propertyLoading) {
