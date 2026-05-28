@@ -14,6 +14,7 @@ export default function ReviewsPage() {
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
+  const [archiveView, setArchiveView] = useState<"active" | "archived">("active");
   const [filterRating, setFilterRating] = useState<number | "all">("all");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
@@ -39,6 +40,9 @@ export default function ReviewsPage() {
 
   const filteredReviews = useMemo(() => {
     return reviews
+      .filter((r) =>
+        archiveView === "active" ? !r.is_archived : r.is_archived
+      )
       .filter((r) => filterRating === "all" || r.rating === filterRating)
       .filter(
         (r) =>
@@ -50,7 +54,15 @@ export default function ReviewsPage() {
           !filterDateTo ||
           new Date(r.created_at) <= new Date(filterDateTo + "T23:59:59")
       );
-  }, [reviews, filterRating, filterDateFrom, filterDateTo]);
+  }, [reviews, archiveView, filterRating, filterDateFrom, filterDateTo]);
+
+  const viewTotal = useMemo(
+    () =>
+      reviews.filter((r) =>
+        archiveView === "active" ? !r.is_archived : r.is_archived
+      ).length,
+    [reviews, archiveView]
+  );
 
   const hasFilters =
     filterRating !== "all" || filterDateFrom !== "" || filterDateTo !== "";
@@ -59,6 +71,26 @@ export default function ReviewsPage() {
     setFilterRating("all");
     setFilterDateFrom("");
     setFilterDateTo("");
+  };
+
+  const handleArchive = async (id: string) => {
+    await supabase
+      .from("reviews")
+      .update({ is_archived: true })
+      .eq("id", id);
+    setReviews((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, is_archived: true } : r))
+    );
+  };
+
+  const handleUnarchive = async (id: string) => {
+    await supabase
+      .from("reviews")
+      .update({ is_archived: false })
+      .eq("id", id);
+    setReviews((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, is_archived: false } : r))
+    );
   };
 
   if (propertyLoading) {
@@ -82,9 +114,35 @@ export default function ReviewsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-900 mb-6">
-        Reviews — {selectedProperty.name}
-      </h1>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h1 className="text-xl font-semibold text-gray-900">
+          Reviews — {selectedProperty.name}
+        </h1>
+
+        {/* Active / Archived pill toggle */}
+        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+          <button
+            onClick={() => setArchiveView("active")}
+            className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+              archiveView === "active"
+                ? "bg-[#10BD91] text-white"
+                : "bg-white text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => setArchiveView("archived")}
+            className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-200 ${
+              archiveView === "archived"
+                ? "bg-[#10BD91] text-white"
+                : "bg-white text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            Archived
+          </button>
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6 flex flex-wrap gap-4 items-end">
@@ -145,8 +203,8 @@ export default function ReviewsPage() {
       </div>
 
       <p className="text-xs text-gray-400 mb-3">
-        Showing {filteredReviews.length} of {reviews.length} review
-        {reviews.length !== 1 ? "s" : ""}
+        Showing {filteredReviews.length} of {viewTotal} {archiveView} review
+        {viewTotal !== 1 ? "s" : ""}
       </p>
 
       {/* Table */}
@@ -157,8 +215,10 @@ export default function ReviewsPage() {
           </div>
         ) : filteredReviews.length === 0 ? (
           <div className="px-6 py-10 text-center text-sm text-gray-400">
-            {reviews.length === 0
-              ? "No reviews yet."
+            {viewTotal === 0
+              ? archiveView === "active"
+                ? "No active reviews yet."
+                : "No archived reviews."
               : "No reviews match your filters."}
           </div>
         ) : (
@@ -177,13 +237,16 @@ export default function ReviewsPage() {
                     Unit Type
                   </th>
                   <th className="px-4 py-3 text-left font-medium">Google</th>
+                  <th className="px-4 py-3 text-left font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredReviews.map((review) => (
                   <tr
                     key={review.id}
-                    className="border-b border-gray-50 hover:bg-gray-50/50 align-top transition-colors"
+                    className={`border-b border-gray-50 hover:bg-gray-50/50 align-top transition-colors ${
+                      review.is_archived ? "opacity-60" : ""
+                    }`}
                   >
                     <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
                       {new Date(review.created_at).toLocaleDateString()}
@@ -227,6 +290,23 @@ export default function ReviewsPage() {
                         </span>
                       ) : (
                         <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {review.is_archived ? (
+                        <button
+                          onClick={() => handleUnarchive(review.id)}
+                          className="text-xs text-[#10BD91] hover:text-[#0da578] bg-transparent border-none cursor-pointer transition-colors whitespace-nowrap"
+                        >
+                          Unarchive
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleArchive(review.id)}
+                          className="text-xs text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer transition-colors whitespace-nowrap"
+                        >
+                          Archive
+                        </button>
                       )}
                     </td>
                   </tr>

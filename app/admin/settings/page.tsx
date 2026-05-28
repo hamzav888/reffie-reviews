@@ -137,8 +137,8 @@ function PropertyForm({
   };
 
   const toggleStyle = (on: boolean) =>
-    `w-10 h-6 rounded-full transition-colors relative flex-shrink-0 ${
-      on ? "bg-[#10BD91]" : "bg-gray-200"
+    `relative inline-flex items-center w-11 h-6 rounded-full flex-shrink-0 border-0 p-0 cursor-pointer transition-colors ${
+      on ? "bg-[#10BD91]" : "bg-[#D1D5DB]"
     }`;
 
   return (
@@ -351,9 +351,18 @@ function PropertyForm({
               className={toggleStyle(value)}
             >
               <span
-                className={`absolute w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                  value ? "translate-x-5" : "translate-x-1"
-                }`}
+                style={{
+                  position: "absolute",
+                  top: "2px",
+                  left: "2px",
+                  width: "20px",
+                  height: "20px",
+                  borderRadius: "9999px",
+                  background: "white",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                  transition: "transform 150ms",
+                  transform: value ? "translateX(20px)" : "translateX(0px)",
+                }}
               />
             </button>
             <span className="text-sm text-gray-700">{label}</span>
@@ -378,9 +387,18 @@ function PropertyForm({
             className={toggleStyle(reviewFlowEnabled)}
           >
             <span
-              className={`absolute w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                reviewFlowEnabled ? "translate-x-5" : "translate-x-1"
-              }`}
+              style={{
+                position: "absolute",
+                top: "2px",
+                left: "2px",
+                width: "20px",
+                height: "20px",
+                borderRadius: "9999px",
+                background: "white",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+                transition: "transform 150ms",
+                transform: reviewFlowEnabled ? "translateX(20px)" : "translateX(0px)",
+              }}
             />
           </button>
           <span className="text-sm text-gray-700">

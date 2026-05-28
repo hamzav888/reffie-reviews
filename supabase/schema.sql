@@ -40,6 +40,7 @@ CREATE TABLE reviews (
   google_clicked BOOLEAN NOT NULL DEFAULT false,
   google_comment_copied TEXT,
   is_complete BOOLEAN NOT NULL DEFAULT false,
+  is_archived BOOLEAN NOT NULL DEFAULT false,
   honeypot TEXT
 );
 

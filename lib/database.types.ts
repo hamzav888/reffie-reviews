@@ -102,6 +102,7 @@ export type Database = {
           google_prompt_shown: boolean
           honeypot: string | null
           id: string
+          is_archived: boolean
           is_complete: boolean
           property_id: string
           rating: number
@@ -120,6 +121,7 @@ export type Database = {
           google_prompt_shown?: boolean
           honeypot?: string | null
           id?: string
+          is_archived?: boolean
           is_complete?: boolean
           property_id: string
           rating: number
@@ -138,6 +140,7 @@ export type Database = {
           google_prompt_shown?: boolean
           honeypot?: string | null
           id?: string
+          is_archived?: boolean
           is_complete?: boolean
           property_id?: string
           rating?: number

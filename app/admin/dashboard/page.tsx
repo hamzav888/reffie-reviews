@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
 
   type SortColumn = "date" | "rating" | "name" | "comment" | "google";
   type SortDirection = "asc" | "desc";
@@ -39,23 +40,19 @@ export default function DashboardPage() {
     fetchReviews();
   }, [selectedProperty, supabase]);
 
-  const shareableLink = `${
-    process.env.NEXT_PUBLIC_APP_URL ?? ""
-  }/r/${selectedProperty?.slug ?? ""}`;
+  // Separate active and archived — must be before early returns
+  const activeReviews = useMemo(
+    () => reviews.filter((r) => !r.is_archived),
+    [reviews]
+  );
 
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareableLink);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2000);
-    } catch {
-      // Silent fail
-    }
-  };
+  const archivedReviews = useMemo(
+    () => reviews.filter((r) => r.is_archived),
+    [reviews]
+  );
 
-  // Must be before any early returns — hooks cannot be called conditionally
   const sortedReviews = useMemo(() => {
-    const sorted = [...reviews];
+    const sorted = [...activeReviews];
     sorted.sort((a, b) => {
       let cmp = 0;
       switch (sortColumn) {
@@ -86,7 +83,6 @@ export default function DashboardPage() {
           break;
         }
         case "google":
-          // true (shared) sorts first on ascending
           cmp =
             (a.redirected_to_google ? 0 : 1) -
             (b.redirected_to_google ? 0 : 1);
@@ -95,7 +91,7 @@ export default function DashboardPage() {
       return sortDirection === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [reviews, sortColumn, sortDirection]);
+  }, [activeReviews, sortColumn, sortDirection]);
 
   if (propertyLoading) {
     return (
@@ -118,6 +114,21 @@ export default function DashboardPage() {
     );
   }
 
+  const shareableLink = `${
+    process.env.NEXT_PUBLIC_APP_URL ??
+    (typeof window !== "undefined" ? window.location.origin : "")
+  }/r/${selectedProperty.slug}`;
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareableLink);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Silent fail
+    }
+  };
+
   const handleSort = (col: SortColumn) => {
     if (sortColumn === col) {
       setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
@@ -132,12 +143,32 @@ export default function DashboardPage() {
     return <span className="ml-1">{sortDirection === "asc" ? "↑" : "↓"}</span>;
   };
 
-  // Stats — computed in JS, no extra queries
-  const totalReviews = reviews.length;
-  const positiveCount = reviews.filter((r) => r.rating >= 4).length;
+  const handleArchive = async (id: string) => {
+    await supabase
+      .from("reviews")
+      .update({ is_archived: true })
+      .eq("id", id);
+    setReviews((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, is_archived: true } : r))
+    );
+  };
+
+  const handleUnarchive = async (id: string) => {
+    await supabase
+      .from("reviews")
+      .update({ is_archived: false })
+      .eq("id", id);
+    setReviews((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, is_archived: false } : r))
+    );
+  };
+
+  // Stats — based only on active reviews
+  const totalReviews = activeReviews.length;
+  const positiveCount = activeReviews.filter((r) => r.rating >= 4).length;
   const positivePercent =
     totalReviews > 0 ? Math.round((positiveCount / totalReviews) * 100) : 0;
-  const googleCount = reviews.filter((r) => r.redirected_to_google).length;
+  const googleCount = activeReviews.filter((r) => r.redirected_to_google).length;
   const googlePercent =
     totalReviews > 0 ? Math.round((googleCount / totalReviews) * 100) : 0;
 
@@ -192,8 +223,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Review table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {/* Active reviews table */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mb-4">
         <div className="px-6 py-4 border-b border-gray-100">
           <h2 className="text-sm font-semibold text-gray-900">
             Recent Reviews
@@ -204,7 +235,7 @@ export default function DashboardPage() {
           <div className="px-6 py-10 text-center text-sm text-gray-400 animate-pulse">
             Loading reviews...
           </div>
-        ) : reviews.length === 0 ? (
+        ) : activeReviews.length === 0 ? (
           <div className="px-6 py-10 text-center text-sm text-gray-400">
             No reviews yet. Share your link to start collecting feedback.
           </div>
@@ -243,6 +274,7 @@ export default function DashboardPage() {
                   >
                     Google{sortIndicator("google")}
                   </th>
+                  <th className="px-6 py-3 text-left font-medium" />
                 </tr>
               </thead>
               <tbody>
@@ -286,6 +318,14 @@ export default function DashboardPage() {
                         <span className="text-xs text-gray-400">—</span>
                       )}
                     </td>
+                    <td className="px-6 py-3">
+                      <button
+                        onClick={() => handleArchive(review.id)}
+                        className="text-xs text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer transition-colors"
+                      >
+                        Archive
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -293,6 +333,92 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Archived reviews collapsible */}
+      {archivedReviews.length > 0 && (
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <button
+            onClick={() => setShowArchived((s) => !s)}
+            className="w-full px-6 py-4 flex items-center justify-between text-left border-none bg-transparent cursor-pointer hover:bg-gray-50/50 transition-colors"
+          >
+            <span className="text-sm font-semibold text-gray-500">
+              Archived Reviews ({archivedReviews.length})
+            </span>
+            <span className="text-xs text-gray-400">
+              {showArchived ? "▲ Hide" : "▼ Show"}
+            </span>
+          </button>
+
+          {showArchived && (
+            <div className="border-t border-gray-100 overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-xs text-gray-500 border-b border-gray-100 bg-gray-50/50">
+                    <th className="px-6 py-3 text-left font-medium">Date</th>
+                    <th className="px-6 py-3 text-left font-medium">Rating</th>
+                    <th className="px-6 py-3 text-left font-medium">Name</th>
+                    <th className="px-6 py-3 text-left font-medium">Comment</th>
+                    <th className="px-6 py-3 text-left font-medium">Google</th>
+                    <th className="px-6 py-3 text-left font-medium" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {archivedReviews.map((review) => (
+                    <tr
+                      key={review.id}
+                      className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors opacity-60"
+                    >
+                      <td className="px-6 py-3 text-xs text-gray-500 whitespace-nowrap">
+                        {new Date(review.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-3">
+                        <span
+                          className="text-sm"
+                          style={{
+                            color: review.rating >= 4 ? "#10BD91" : "#F59E0B",
+                          }}
+                        >
+                          {"★".repeat(review.rating)}
+                          <span className="text-gray-200">
+                            {"★".repeat(5 - review.rating)}
+                          </span>
+                        </span>
+                      </td>
+                      <td className="px-6 py-3 text-sm text-gray-700">
+                        {review.reviewer_name ?? "—"}
+                      </td>
+                      <td className="px-6 py-3 text-sm text-gray-600 max-w-xs">
+                        {review.comment
+                          ? review.comment.length > 80
+                            ? review.comment.slice(0, 80) + "…"
+                            : review.comment
+                          : "—"}
+                      </td>
+                      <td className="px-6 py-3">
+                        {review.google_clicked ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">
+                            Shared
+                          </span>
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-3">
+                        <button
+                          onClick={() => handleUnarchive(review.id)}
+                          className="text-xs text-[#10BD91] hover:text-[#0da578] bg-transparent border-none cursor-pointer transition-colors"
+                        >
+                          Unarchive
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
