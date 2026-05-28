@@ -60,6 +60,7 @@ export type Database = {
           name: string
           negative_prompt: string
           optional_fields: Json
+          review_flow_enabled: boolean
           review_prompt: string
           slug: string
         }
@@ -72,6 +73,7 @@ export type Database = {
           name: string
           negative_prompt?: string
           optional_fields?: Json
+          review_flow_enabled?: boolean
           review_prompt?: string
           slug: string
         }
@@ -84,6 +86,7 @@ export type Database = {
           name?: string
           negative_prompt?: string
           optional_fields?: Json
+          review_flow_enabled?: boolean
           review_prompt?: string
           slug?: string
         }

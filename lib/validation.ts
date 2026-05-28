@@ -47,6 +47,7 @@ export interface Property {
     tour_guide: boolean;
     unit_type: boolean;
   };
+  review_flow_enabled: boolean;
 }
 
 export interface Review {

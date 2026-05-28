@@ -81,7 +81,7 @@ function GooglePromptScreen({
       )}
 
       {copied ? (
-        <p className="text-xs text-green-600 mb-4 flex items-center justify-center gap-1.5">
+        <p className="text-xs mb-4 flex items-center justify-center gap-1.5" style={{ color: "#10BD91" }}>
           <span>✓</span> Copied to clipboard
         </p>
       ) : (
@@ -94,7 +94,7 @@ function GooglePromptScreen({
         onClick={handleShareOnGoogle}
         onMouseEnter={() => setBtnHover(true)}
         onMouseLeave={() => setBtnHover(false)}
-        className="w-full py-3 rounded-xl text-white font-semibold text-sm mb-3 transition-opacity"
+        className="w-full min-h-[48px] py-3 rounded-xl text-white font-bold text-sm mb-3 transition-opacity"
         style={{ backgroundColor: brandColor, opacity: btnHover ? 0.85 : 1 }}
       >
         Share on Google
@@ -102,7 +102,7 @@ function GooglePromptScreen({
 
       <button
         onClick={onDone}
-        className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer transition-colors"
+        className="w-full min-h-[48px] py-2 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors"
       >
         Maybe later
       </button>
@@ -138,6 +138,7 @@ export default function ReviewPage() {
   const [starSubmitting, setStarSubmitting] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitBtnHover, setSubmitBtnHover] = useState(false);
 
   // Fetch property on mount
   useEffect(() => {
@@ -261,6 +262,31 @@ export default function ReviewPage() {
         <p className="text-sm text-gray-500">
           {propertyError ?? "Property not found."}
         </p>
+      </div>
+    );
+  }
+
+  // ── Review flow disabled ──
+  if (!property.review_flow_enabled) {
+    return (
+      <div className="min-h-screen bg-[#FAF8F5] flex items-center justify-center px-4">
+        <div className="w-full max-w-sm text-center">
+          {property.logo_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={property.logo_url}
+              alt={property.name}
+              className="h-12 mx-auto mb-4 object-contain"
+            />
+          )}
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            {property.name}
+          </h2>
+          <p className="text-sm text-gray-500 leading-relaxed">
+            Reviews are currently unavailable for this property. Please check
+            back later.
+          </p>
+        </div>
       </div>
     );
   }
@@ -391,7 +417,9 @@ export default function ReviewPage() {
                       color:
                         star <= (hoverRating || rating)
                           ? brandColor
-                          : "#E5E7EB",
+                          : "#D1D5DB",
+                      opacity:
+                        hoverRating > 0 && star <= hoverRating ? 0.6 : 1,
                     }}
                     aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
                   >
@@ -440,7 +468,7 @@ export default function ReviewPage() {
                       : suggestedComment || "Share your experience..."
                   }
                   rows={4}
-                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none disabled:bg-gray-50 disabled:text-gray-400"
+                  className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none placeholder:text-gray-400 disabled:bg-gray-50 disabled:cursor-not-allowed"
                   onFocus={(e) =>
                     (e.target.style.boxShadow = `0 0 0 2px ${brandColor}33`)
                   }
@@ -470,8 +498,13 @@ export default function ReviewPage() {
               <button
                 type="submit"
                 disabled={submitting || commentLoading}
-                className="w-full py-3 rounded-xl text-white font-semibold text-sm disabled:opacity-50 transition-opacity"
-                style={{ backgroundColor: brandColor }}
+                onMouseEnter={() => !submitting && !commentLoading && setSubmitBtnHover(true)}
+                onMouseLeave={() => setSubmitBtnHover(false)}
+                className="w-full min-h-[48px] py-3 rounded-xl text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                style={{
+                  backgroundColor: brandColor,
+                  opacity: submitBtnHover && !submitting && !commentLoading ? 0.85 : 1,
+                }}
               >
                 {submitting ? "Submitting..." : "Submit Review"}
               </button>
@@ -525,7 +558,13 @@ export default function ReviewPage() {
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full py-3 rounded-xl text-white font-semibold text-sm disabled:opacity-50 bg-gray-800"
+                onMouseEnter={() => !submitting && setSubmitBtnHover(true)}
+                onMouseLeave={() => setSubmitBtnHover(false)}
+                className="w-full min-h-[48px] py-3 rounded-xl text-white font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
+                style={{
+                  backgroundColor: brandColor,
+                  opacity: submitBtnHover && !submitting ? 0.85 : 1,
+                }}
               >
                 {submitting ? "Submitting..." : "Submit Feedback"}
               </button>

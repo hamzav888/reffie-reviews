@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
 import { useProperty } from "@/lib/property-context";
+import { Toggle } from "@/lib/components/Toggle";
 import type { Tables } from "@/lib/database.types";
 
 type PropertyRow = Tables<"properties">;
@@ -52,6 +53,9 @@ function PropertyForm({
     optFields?.tour_guide ?? false
   );
   const [optUnitType, setOptUnitType] = useState(optFields?.unit_type ?? false);
+  const [reviewFlowEnabled, setReviewFlowEnabled] = useState(
+    initial?.review_flow_enabled ?? true
+  );
 
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -78,6 +82,7 @@ function PropertyForm({
         tour_guide: optTourGuide,
         unit_type: optUnitType,
       },
+      review_flow_enabled: reviewFlowEnabled,
     };
 
     if (initial) {
@@ -304,6 +309,21 @@ function PropertyForm({
             <span className="text-sm text-gray-700">{label}</span>
           </label>
         ))}
+      </div>
+
+      {/* ── Review Flow ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700">Review Flow</h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Disable to show a &quot;unavailable&quot; message instead of the review form.
+          </p>
+        </div>
+        <Toggle
+          checked={reviewFlowEnabled}
+          onChange={setReviewFlowEnabled}
+          label="Enable review flow for this property"
+        />
       </div>
 
       {errorMsg && (

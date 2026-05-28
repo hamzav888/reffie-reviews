@@ -107,6 +107,7 @@ export async function GET(req: Request) {
       created_at: p.created_at,
       review_count: reviewCountMap[p.id] ?? 0,
       manager_ids: managersByProp[p.id] ?? [],
+      review_flow_enabled: p.review_flow_enabled,
     }));
 
     const usersWithProperties = users.map((u) => ({
@@ -156,6 +157,7 @@ export async function POST(req: Request) {
         tour_guide: false,
         unit_type: false,
       },
+      review_flow_enabled: (body.review_flow_enabled as boolean) ?? true,
     };
 
     if (!payload.name || !payload.slug) {

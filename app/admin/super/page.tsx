@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
 import { isSuperAdmin } from "@/lib/auth";
+import { Toggle } from "@/lib/components/Toggle";
 import type { Tables } from "@/lib/database.types";
 
 // ── Local types ──────────────────────────────────────────────────────────────
@@ -18,6 +19,7 @@ type PropertyWithStats = {
   created_at: string;
   review_count: number;
   manager_ids: string[];
+  review_flow_enabled: boolean;
 };
 
 type UserWithProperties = {
@@ -284,6 +286,7 @@ function PropertiesTab({
                   <th className="px-4 py-3 text-left font-medium">Name</th>
                   <th className="px-4 py-3 text-left font-medium">Slug</th>
                   <th className="px-4 py-3 text-left font-medium">Color</th>
+                  <th className="px-4 py-3 text-left font-medium">Flow</th>
                   <th className="px-4 py-3 text-left font-medium">Reviews</th>
                   <th className="px-4 py-3 text-left font-medium">Managers</th>
                   <th className="px-4 py-3 text-left font-medium">Created</th>
@@ -308,6 +311,17 @@ function PropertiesTab({
                           className="inline-block w-4 h-4 rounded-full border border-gray-200"
                           style={{ background: p.brand_color }}
                         />
+                      </td>
+                      <td className="px-4 py-3">
+                        {p.review_flow_enabled ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">
+                            On
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">
+                            Off
+                          </span>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">
                         {p.review_count}
@@ -339,7 +353,7 @@ function PropertiesTab({
                     </tr>
                     {editingId === p.id && (
                       <tr key={`${p.id}-edit`} className="bg-gray-50/50">
-                        <td colSpan={7} className="px-4 py-4">
+                        <td colSpan={8} className="px-4 py-4">
                           <PropertyForm
                             initial={p}
                             token={token}
@@ -382,6 +396,9 @@ function PropertyForm({
     initial?.brand_color ?? DEFAULT_BRAND_COLOR
   );
   const [placeId, setPlaceId] = useState("");
+  const [reviewFlowEnabled, setReviewFlowEnabled] = useState(
+    initial?.review_flow_enabled ?? true
+  );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -403,6 +420,7 @@ function PropertyForm({
           name,
           slug,
           brand_color: brandColor,
+          review_flow_enabled: reviewFlowEnabled,
         };
         if (placeId) body.google_review_url = googleReviewUrl;
 
@@ -429,6 +447,7 @@ function PropertyForm({
             slug,
             brand_color: brandColor,
             google_review_url: googleReviewUrl,
+            review_flow_enabled: reviewFlowEnabled,
           }),
         });
         const json = await res.json();
@@ -514,6 +533,12 @@ function PropertyForm({
           />
         </div>
       </div>
+
+      <Toggle
+        checked={reviewFlowEnabled}
+        onChange={setReviewFlowEnabled}
+        label="Enable review flow"
+      />
 
       {err && (
         <p className="text-xs px-3 py-2 rounded-lg bg-red-50 text-red-600">
