@@ -1,4 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import { isSuperAdmin } from "@/lib/auth";
@@ -6,23 +5,15 @@ import type { Database } from "@/lib/database.types";
 
 // ── Auth verification ────────────────────────────────────────────────────────
 // Verify the caller's JWT (Bearer token) and confirm they are a super-admin.
-// Returns the verified user, or null if unauthorised.
+// Passes the JWT directly to auth.getUser(token) — the correct server-side
+// pattern in Supabase JS v2. Never trusts any email supplied by the client.
 async function verifySuper(req: Request) {
   const raw = req.headers.get("Authorization") ?? "";
   const token = raw.startsWith("Bearer ") ? raw.slice(7).trim() : raw.trim();
   if (!token) return null;
 
-  // Construct a user-scoped client so Supabase verifies the JWT for us.
-  // We never trust the email supplied by the client directly.
-  const userClient = createClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { Authorization: `Bearer ${token}` } } }
-  );
-  const {
-    data: { user },
-  } = await userClient.auth.getUser();
-
+  const supabase = createServiceClient();
+  const { data: { user } } = await supabase.auth.getUser(token);
   if (!user || !isSuperAdmin(user.email)) return null;
   return user;
 }
