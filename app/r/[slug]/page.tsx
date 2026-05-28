@@ -64,7 +64,7 @@ function GooglePromptScreen({
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-      <div className="text-4xl mb-3">⭐</div>
+      <div className="text-4xl mb-3">🎉</div>
       <h2 className="text-xl font-semibold text-gray-900 mb-2">
         You&apos;re the best!
       </h2>
@@ -86,7 +86,7 @@ function GooglePromptScreen({
         </p>
       ) : (
         <p className="text-xs text-gray-400 mb-4">
-          Your review is ready to paste on Google.
+          Just paste it when Google opens
         </p>
       )}
 
@@ -401,7 +401,7 @@ export default function ReviewPage() {
                 How was your tour?
               </h2>
               <p className="text-sm text-gray-500 mb-8">
-                Tap a star to rate your experience
+                We&apos;d love to hear about your experience.
               </p>
 
               <div className="flex justify-center gap-2 mb-6">
@@ -428,6 +428,12 @@ export default function ReviewPage() {
                 ))}
               </div>
 
+              {!starSubmitting && (
+                <p className="text-xs text-gray-400">
+                  Tap a star to rate
+                </p>
+              )}
+
               {starSubmitting && (
                 <p className="text-xs text-gray-400 animate-pulse">
                   Saving...
@@ -451,6 +457,9 @@ export default function ReviewPage() {
               <h2 className="text-lg font-semibold text-gray-900">
                 Glad you had a great experience!
               </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Here&apos;s a review to get you started — feel free to edit.
+              </p>
             </div>
 
             <form onSubmit={handleSubmitReview} className="space-y-4">
@@ -465,7 +474,7 @@ export default function ReviewPage() {
                   placeholder={
                     commentLoading
                       ? "Loading suggestion..."
-                      : suggestedComment || "Share your experience..."
+                      : suggestedComment || "Edit or keep this review as-is..."
                   }
                   rows={4}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none placeholder:text-gray-400 disabled:bg-gray-50 disabled:cursor-not-allowed"
@@ -474,6 +483,9 @@ export default function ReviewPage() {
                   }
                   onBlur={(e) => (e.target.style.boxShadow = "")}
                 />
+                <p className="text-xs text-gray-400 mt-1.5">
+                  A little more detail helps Google reviewers
+                </p>
               </div>
 
               <OptionalFields />
@@ -506,7 +518,7 @@ export default function ReviewPage() {
                   opacity: submitBtnHover && !submitting && !commentLoading ? 0.85 : 1,
                 }}
               >
-                {submitting ? "Submitting..." : "Submit Review"}
+                {submitting ? "Submitting..." : "Submit review"}
               </button>
             </form>
           </div>
@@ -518,8 +530,11 @@ export default function ReviewPage() {
             <div className="text-center mb-6">
               <StarRow />
               <h2 className="text-lg font-semibold text-gray-900">
-                We appreciate your honesty.
+                We appreciate your honesty
               </h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Help us understand how we can improve.
+              </p>
             </div>
 
             <form onSubmit={handleSubmitReview} className="space-y-4">
@@ -530,7 +545,7 @@ export default function ReviewPage() {
                 <textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder="Your feedback helps us improve..."
+                  placeholder="What could we do better?"
                   rows={4}
                   className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-gray-300"
                 />
@@ -566,8 +581,11 @@ export default function ReviewPage() {
                   opacity: submitBtnHover && !submitting ? 0.85 : 1,
                 }}
               >
-                {submitting ? "Submitting..." : "Submit Feedback"}
+                {submitting ? "Submitting..." : "Submit feedback"}
               </button>
+              <p className="text-xs text-center text-gray-400">
+                Your feedback stays private with our team.
+              </p>
             </form>
           </div>
         )}
@@ -586,12 +604,12 @@ export default function ReviewPage() {
         {/* ── Screen 4: Thank You ── */}
         {screen === 4 && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
-            <div className="text-5xl mb-4">🙏</div>
+            <div className="text-5xl mb-4">✅</div>
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
               Thank you!
             </h2>
             <p className="text-sm text-gray-500 leading-relaxed">
-              Your feedback means a lot to our team.
+              Your feedback means a lot to us.
             </p>
           </div>
         )}

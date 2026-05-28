@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
 import { useProperty } from "@/lib/property-context";
-import { Toggle } from "@/lib/components/Toggle";
 import type { Tables } from "@/lib/database.types";
 
 type PropertyRow = Tables<"properties">;
@@ -370,11 +369,24 @@ function PropertyForm({
             Disable to show a &quot;unavailable&quot; message instead of the review form.
           </p>
         </div>
-        <Toggle
-          checked={reviewFlowEnabled}
-          onChange={setReviewFlowEnabled}
-          label="Enable review flow for this property"
-        />
+        <label className="flex items-center gap-3 cursor-pointer">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={reviewFlowEnabled}
+            onClick={() => setReviewFlowEnabled(!reviewFlowEnabled)}
+            className={toggleStyle(reviewFlowEnabled)}
+          >
+            <span
+              className={`absolute w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                reviewFlowEnabled ? "translate-x-5" : "translate-x-1"
+              }`}
+            />
+          </button>
+          <span className="text-sm text-gray-700">
+            Enable review flow for this property
+          </span>
+        </label>
       </div>
 
       {errorMsg && (
