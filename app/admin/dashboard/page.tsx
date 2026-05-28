@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase";
 import { useProperty } from "@/lib/property-context";
 import type { Tables } from "@/lib/database.types";
@@ -14,6 +14,11 @@ export default function DashboardPage() {
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  type SortColumn = "date" | "rating" | "name" | "comment" | "google";
+  type SortDirection = "asc" | "desc";
+  const [sortColumn, setSortColumn] = useState<SortColumn>("date");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
 
   // Re-fetch reviews whenever the selected property changes
   useEffect(() => {
@@ -68,6 +73,63 @@ export default function DashboardPage() {
       </div>
     );
   }
+
+  const handleSort = (col: SortColumn) => {
+    if (sortColumn === col) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortColumn(col);
+      setSortDirection("asc");
+    }
+  };
+
+  const sortIndicator = (col: SortColumn) => {
+    if (sortColumn !== col) return <span className="text-gray-300 ml-1">↕</span>;
+    return <span className="ml-1">{sortDirection === "asc" ? "↑" : "↓"}</span>;
+  };
+
+  const sortedReviews = useMemo(() => {
+    const sorted = [...reviews];
+    sorted.sort((a, b) => {
+      let cmp = 0;
+      switch (sortColumn) {
+        case "date":
+          cmp =
+            new Date(a.created_at).getTime() -
+            new Date(b.created_at).getTime();
+          break;
+        case "rating":
+          cmp = a.rating - b.rating;
+          break;
+        case "name": {
+          const aName = a.reviewer_name ?? "";
+          const bName = b.reviewer_name ?? "";
+          if (!aName && !bName) { cmp = 0; break; }
+          if (!aName) { cmp = 1; break; }
+          if (!bName) { cmp = -1; break; }
+          cmp = aName.localeCompare(bName);
+          break;
+        }
+        case "comment": {
+          const aComment = a.comment ?? "";
+          const bComment = b.comment ?? "";
+          if (!aComment && !bComment) { cmp = 0; break; }
+          if (!aComment) { cmp = 1; break; }
+          if (!bComment) { cmp = -1; break; }
+          cmp = aComment.localeCompare(bComment);
+          break;
+        }
+        case "google":
+          // true (shared) sorts first on ascending
+          cmp =
+            (a.redirected_to_google ? 0 : 1) -
+            (b.redirected_to_google ? 0 : 1);
+          break;
+      }
+      return sortDirection === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [reviews, sortColumn, sortDirection]);
 
   // Stats — computed in JS, no extra queries
   const totalReviews = reviews.length;
@@ -150,15 +212,40 @@ export default function DashboardPage() {
             <table className="w-full">
               <thead>
                 <tr className="text-xs text-gray-500 border-b border-gray-100 bg-gray-50/50">
-                  <th className="px-6 py-3 text-left font-medium">Date</th>
-                  <th className="px-6 py-3 text-left font-medium">Rating</th>
-                  <th className="px-6 py-3 text-left font-medium">Name</th>
-                  <th className="px-6 py-3 text-left font-medium">Comment</th>
-                  <th className="px-6 py-3 text-left font-medium">Google</th>
+                  <th
+                    className="px-6 py-3 text-left font-medium cursor-pointer select-none hover:text-gray-700"
+                    onClick={() => handleSort("date")}
+                  >
+                    Date{sortIndicator("date")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-left font-medium cursor-pointer select-none hover:text-gray-700"
+                    onClick={() => handleSort("rating")}
+                  >
+                    Rating{sortIndicator("rating")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-left font-medium cursor-pointer select-none hover:text-gray-700"
+                    onClick={() => handleSort("name")}
+                  >
+                    Name{sortIndicator("name")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-left font-medium cursor-pointer select-none hover:text-gray-700"
+                    onClick={() => handleSort("comment")}
+                  >
+                    Comment{sortIndicator("comment")}
+                  </th>
+                  <th
+                    className="px-6 py-3 text-left font-medium cursor-pointer select-none hover:text-gray-700"
+                    onClick={() => handleSort("google")}
+                  >
+                    Google{sortIndicator("google")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {reviews.map((review) => (
+                {sortedReviews.map((review) => (
                   <tr
                     key={review.id}
                     className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors"
