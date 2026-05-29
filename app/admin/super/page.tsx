@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
-import { Toggle } from "@/lib/components/Toggle";
 import type { Tables } from "@/lib/database.types";
 
 // ── Local types ──────────────────────────────────────────────────────────────
@@ -691,11 +690,33 @@ function PropertyForm({
         />
       </div>
 
-      <Toggle
-        checked={reviewFlowEnabled}
-        onChange={setReviewFlowEnabled}
-        label="Enable review flow"
-      />
+      <label className="flex items-center gap-3 cursor-pointer">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={reviewFlowEnabled}
+          onClick={() => setReviewFlowEnabled(!reviewFlowEnabled)}
+          className={`relative inline-flex items-center w-11 h-6 rounded-full flex-shrink-0 border-0 p-0 cursor-pointer transition-colors ${
+            reviewFlowEnabled ? "bg-[#10BD91]" : "bg-[#D1D5DB]"
+          }`}
+        >
+          <span
+            style={{
+              position: "absolute",
+              top: "2px",
+              left: "2px",
+              width: "20px",
+              height: "20px",
+              borderRadius: "9999px",
+              background: "white",
+              boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+              transition: "transform 150ms",
+              transform: reviewFlowEnabled ? "translateX(20px)" : "translateX(0px)",
+            }}
+          />
+        </button>
+        <span className="text-xs text-gray-600">Enable review flow</span>
+      </label>
 
       {err && (
         <p className="text-xs px-3 py-2 rounded-lg bg-red-50 text-red-600">
