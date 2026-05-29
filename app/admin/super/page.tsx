@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
 import type { Tables } from "@/lib/database.types";
 
@@ -36,8 +35,6 @@ type ReviewWithProperty = Tables<"reviews"> & {
 
 const DEFAULT_BRAND_COLOR = "#10BD91";
 
-type VerifyState = "checking" | "unverified" | "denied" | "verified";
-
 function starStr(rating: number) {
   return "★".repeat(rating) + "☆".repeat(5 - rating);
 }
@@ -45,12 +42,17 @@ function starStr(rating: number) {
 // ── Main page ────────────────────────────────────────────────────────────────
 
 export default function SuperAdminPage() {
-  const router = useRouter();
   const supabase = createBrowserClient();
 
+  // null = loading/checking, true = verified, false = not verified
+  const [verified, setVerified] = useState<boolean | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [verifyState, setVerifyState] = useState<VerifyState>("checking");
+
+  // Debug state — remove once OAuth flow is confirmed working
+  const [debugHref, setDebugHref] = useState("");
+  const [debugSessionEmail, setDebugSessionEmail] = useState<string | null>(null);
+  const [debugSessionExists, setDebugSessionExists] = useState<boolean | null>(null);
+  const [debugOAuthError, setDebugOAuthError] = useState<string | null>(null);
 
   // Tab state
   const [tab, setTab] = useState<Tab>("properties");
@@ -66,87 +68,49 @@ export default function SuperAdminPage() {
   // Access is granted only when the active Supabase session belongs to a
   // @reffie.me Google account. The result is cached in localStorage so the
   // user isn't re-prompted on every navigation within the same browser session.
+  //
+  // Supabase JS v2 automatically processes the PKCE callback when getSession()
+  // is called — no manual code exchange or onAuthStateChange listeners needed.
   useEffect(() => {
+    setDebugHref(window.location.href);
+
     const alreadyVerified =
       localStorage.getItem("super_admin_verified") === "true";
 
-    // ── Path 1: Previously verified — re-validate the active session ────────
     if (alreadyVerified) {
+      // Previously verified: fetch the current session to get the access
+      // token for API calls. No email re-check — localStorage is the source
+      // of truth after the one-time Google verification.
       supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user.email?.endsWith("@reffie.me")) {
-          setToken(session.access_token);
-          setVerifyState("verified");
-        } else {
-          localStorage.removeItem("super_admin_verified");
-          setVerifyState("unverified");
-        }
-        setAuthChecked(true);
+        setDebugSessionExists(session !== null);
+        setDebugSessionEmail(session?.user.email ?? null);
+        if (session) setToken(session.access_token);
+        setVerified(true);
       });
       return;
     }
 
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
+    // Not yet verified — call getSession(). After a Google OAuth redirect,
+    // Supabase automatically exchanges the PKCE code and populates the
+    // session before getSession() resolves.
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setDebugSessionExists(session !== null);
+      setDebugSessionEmail(session?.user.email ?? null);
 
-    // ── Path 2: No OAuth code and not already verified — show verify screen ─
-    if (!code) {
-      setVerifyState("unverified");
-      setAuthChecked(true);
-      return;
-    }
-
-    // ── Path 3: OAuth PKCE callback — explicitly exchange code for session ───
-    // Strip the code from the URL immediately so a page reload doesn't try to
-    // re-exchange the same (single-use) PKCE code.
-    window.history.replaceState({}, "", window.location.pathname);
-
-    let settled = false;
-    const settle = (
-      session: { user: { email?: string | null }; access_token: string } | null
-    ) => {
-      if (settled) return;
-      settled = true;
-
-      if (!session) {
-        setVerifyState("denied");
-        setAuthChecked(true);
-        return;
-      }
-
-      if (session.user.email?.endsWith("@reffie.me")) {
+      if (session && session.user.email?.endsWith("@reffie.me")) {
+        // Capture the token before signing out so API calls still work
+        // for the lifetime of this access token (~1 hr).
+        const accessToken = session.access_token;
         localStorage.setItem("super_admin_verified", "true");
-        setToken(session.access_token);
-        setVerifyState("verified");
+        // Sign out the Google OAuth session so it does not overwrite the
+        // primary email/password session on the next admin navigation.
+        await supabase.auth.signOut();
+        setToken(accessToken);
+        setVerified(true);
       } else {
-        setVerifyState("denied");
+        setVerified(false);
       }
-      setAuthChecked(true);
-    };
-
-    // Subscribe before exchanging so we don't miss the SIGNED_IN event
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      settle(session);
     });
-
-    // Explicitly exchange the PKCE code — this is the correct pattern;
-    // relying on getSession() alone races with the code processing.
-    supabase.auth
-      .exchangeCodeForSession(code)
-      .then(({ data: { session }, error }) => {
-        if (error || !session) {
-          // Exchange failed (e.g., code already consumed) — fall back to
-          // whatever active session currently exists.
-          supabase.auth
-            .getSession()
-            .then(({ data: { session: s } }) => settle(s));
-        } else {
-          settle(session);
-        }
-      });
-
-    return () => subscription.unsubscribe();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Fetch helpers ──────────────────────────────────────────────────────────
@@ -200,16 +164,16 @@ export default function SuperAdminPage() {
   };
 
   useEffect(() => {
-    if (!authChecked || !token) return;
+    if (!verified || !token) return;
     if (tab === "reviews") {
       loadReviews();
     } else {
       loadOverview();
     }
-  }, [authChecked, token, tab]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [verified, token, tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Loading / guard states ─────────────────────────────────────────────────
-  if (!authChecked) {
+  if (verified === null) {
     return (
       <div className="animate-pulse text-gray-400 py-8 text-sm">
         Loading...
@@ -217,7 +181,7 @@ export default function SuperAdminPage() {
     );
   }
 
-  if (verifyState === "unverified") {
+  if (!verified) {
     return (
       <div className="max-w-sm mx-auto py-16 text-center">
         <h1 className="text-xl font-semibold text-gray-900 mb-2">
@@ -227,15 +191,17 @@ export default function SuperAdminPage() {
           Verify your identity with a @reffie.me Google account to continue.
         </p>
         <button
-          onClick={() =>
-            supabase.auth.signInWithOAuth({
+          onClick={async () => {
+            setDebugOAuthError(null);
+            const { error } = await supabase.auth.signInWithOAuth({
               provider: "google",
               options: {
-                redirectTo: window.location.href,
+                redirectTo: window.location.origin + "/admin/super",
                 scopes: "email",
               },
-            })
-          }
+            });
+            if (error) setDebugOAuthError(error.message);
+          }}
           className="w-full py-2.5 rounded-xl text-white font-semibold text-sm mb-4 cursor-pointer border-0"
           style={{ background: "#10BD91" }}
         >
@@ -247,22 +213,27 @@ export default function SuperAdminPage() {
         >
           Go back
         </a>
-      </div>
-    );
-  }
 
-  if (verifyState === "denied") {
-    return (
-      <div className="max-w-sm mx-auto py-16 text-center">
-        <p className="text-sm text-red-600 mb-6">
-          Access denied. A @reffie.me Google account is required.
-        </p>
-        <button
-          onClick={() => router.push("/admin/dashboard")}
-          className="px-5 py-2.5 rounded-xl text-gray-600 text-sm border border-gray-200 hover:bg-gray-50 bg-white cursor-pointer"
-        >
-          Go back
-        </button>
+        {/* Debug display — remove once OAuth flow is confirmed working */}
+        <div className="mt-8 text-left bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs font-mono text-gray-500 space-y-1 break-all">
+          <p>
+            <span className="font-semibold">href:</span> {debugHref}
+          </p>
+          <p>
+            <span className="font-semibold">session exists:</span>{" "}
+            {debugSessionExists === null ? "checking…" : String(debugSessionExists)}
+          </p>
+          <p>
+            <span className="font-semibold">session email:</span>{" "}
+            {debugSessionEmail ?? "none"}
+          </p>
+          {debugOAuthError && (
+            <p className="text-red-500">
+              <span className="font-semibold">oauth error:</span>{" "}
+              {debugOAuthError}
+            </p>
+          )}
+        </div>
       </div>
     );
   }
