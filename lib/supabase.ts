@@ -29,3 +29,21 @@ export function createBrowserClient() {
   browserClient = createClient<Database>(url, key);
   return browserClient;
 }
+
+// Separate client for super admin Google OAuth verification.
+// Uses a different storageKey so Google OAuth never touches the main
+// email/password session. Each client stores its session and PKCE code
+// verifier under its own key, so the two never interfere.
+let superAdminClient: SupabaseClient<Database> | null = null;
+
+export function createSuperAdminClient() {
+  if (superAdminClient) return superAdminClient;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+  superAdminClient = createClient<Database>(url, key, {
+    auth: { storageKey: "sb-super-admin-auth-token" },
+  });
+  return superAdminClient;
+}

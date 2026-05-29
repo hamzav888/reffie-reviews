@@ -28,6 +28,11 @@ function AdminShell({
   const pathname = usePathname();
   const supabase = createBrowserClient();
   const { properties, selectedProperty, setSelectedProperty } = useProperty();
+  const [showSuperLink, setShowSuperLink] = useState(false);
+
+  useEffect(() => {
+    setShowSuperLink(localStorage.getItem("super_admin_verified") === "true");
+  }, [pathname]);
 
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
@@ -74,7 +79,7 @@ function AdminShell({
                 {item.label}
               </button>
             ))}
-            {session?.user?.email?.endsWith("@reffie.me") === true && (
+            {showSuperLink && (
               <button
                 onClick={() => router.push("/admin/super")}
                 className={`text-sm pb-0.5 border-b-2 transition-colors bg-transparent cursor-pointer ${

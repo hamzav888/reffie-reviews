@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createBrowserClient } from "@/lib/supabase";
+import { createBrowserClient, createSuperAdminClient } from "@/lib/supabase";
 import type { Tables } from "@/lib/database.types";
 
 // ── Local types ──────────────────────────────────────────────────────────────
@@ -43,9 +43,10 @@ function starStr(rating: number) {
 
 export default function SuperAdminPage() {
   const supabase = createBrowserClient();
+  const superAuth = createSuperAdminClient();
 
-  // null = loading/checking, true = verified, false = verify screen
-  const [verified, setVerified] = useState<boolean | null>(null);
+  // null = loading/checking, true = verified, false = verify screen, "denied" = wrong Google account
+  const [verified, setVerified] = useState<boolean | "denied" | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
   // Tab state
@@ -59,42 +60,51 @@ export default function SuperAdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   // ── Step-up Google OAuth verification ──────────────────────────────────────
-  // Two paths:
+  //
+  // Uses a separate Supabase client (superAuth) with its own storageKey so
+  // the Google OAuth session never touches the main email/password session.
   //
   // Path A — localStorage flag set from a prior verified session:
-  //   Confirm the session is still alive, then grant access.
+  //   Check superAuth for a live Google session → grant access or clear flag.
   //
-  // Path B — No flag (first visit OR post-OAuth redirect):
-  //   After Google OAuth, Supabase auto-processes the tokens during client
-  //   init (before React mounts). getSession() awaits that init, so by the
-  //   time it resolves the session holds the Google account. Check the email.
+  // Path B — No flag (fresh visit or post-OAuth redirect):
+  //   Check superAuth for a Google session (Supabase auto-processes PKCE
+  //   during client init). If found with @reffie.me → set flag, grant access.
+  //   If no superAuth session → check main client for login guard only
+  //   (never grants super admin access) → show verify screen.
   useEffect(() => {
     const cachedVerified =
       localStorage.getItem("super_admin_verified") === "true";
 
     if (cachedVerified) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (!session) {
-          localStorage.removeItem("super_admin_verified");
-          setVerified(false);
-          return;
-        }
-        setToken(session.access_token);
-        setVerified(true);
-      });
-    } else {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (!session) {
-          window.location.replace("/admin");
-          return;
-        }
-        if (session.user.email?.endsWith("@reffie.me")) {
-          localStorage.setItem("super_admin_verified", "true");
+      superAuth.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user?.email?.endsWith("@reffie.me")) {
           setToken(session.access_token);
           setVerified(true);
         } else {
+          localStorage.removeItem("super_admin_verified");
           setVerified(false);
         }
+      });
+    } else {
+      superAuth.auth.getSession().then(({ data: { session: googleSession } }) => {
+        if (googleSession) {
+          if (googleSession.user.email?.endsWith("@reffie.me")) {
+            localStorage.setItem("super_admin_verified", "true");
+            setToken(googleSession.access_token);
+            setVerified(true);
+          } else {
+            setVerified("denied");
+          }
+          return;
+        }
+        supabase.auth.getSession().then(({ data: { session: mainSession } }) => {
+          if (!mainSession) {
+            window.location.replace("/admin");
+            return;
+          }
+          setVerified(false);
+        });
       });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -167,6 +177,36 @@ export default function SuperAdminPage() {
     );
   }
 
+  if (verified === "denied") {
+    return (
+      <div className="max-w-sm mx-auto py-16 text-center">
+        <h1 className="text-xl font-semibold text-gray-900 mb-2">
+          Access Denied
+        </h1>
+        <p className="text-sm text-gray-500 mb-8">
+          Only @reffie.me Google accounts can access Super Admin. Please try
+          again with the correct account.
+        </p>
+        <button
+          onClick={async () => {
+            await superAuth.auth.signOut();
+            setVerified(false);
+          }}
+          className="w-full py-2.5 rounded-xl text-white font-semibold text-sm mb-4 cursor-pointer border-0"
+          style={{ background: "#10BD91" }}
+        >
+          Try Again
+        </button>
+        <a
+          href="/admin/dashboard"
+          className="text-sm text-gray-400 hover:text-gray-600 underline"
+        >
+          Go back
+        </a>
+      </div>
+    );
+  }
+
   if (verified === false) {
     return (
       <div className="max-w-sm mx-auto py-16 text-center">
@@ -178,7 +218,7 @@ export default function SuperAdminPage() {
         </p>
         <button
           onClick={async () => {
-            await supabase.auth.signInWithOAuth({
+            await superAuth.auth.signInWithOAuth({
               provider: "google",
               options: {
                 redirectTo: window.location.origin + "/admin/super",
@@ -217,8 +257,8 @@ export default function SuperAdminPage() {
         <button
           onClick={async () => {
             localStorage.removeItem("super_admin_verified");
-            await supabase.auth.signOut();
-            window.location.href = "/admin";
+            await superAuth.auth.signOut();
+            window.location.href = "/admin/dashboard";
           }}
           className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 bg-transparent cursor-pointer"
         >
