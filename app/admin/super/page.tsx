@@ -189,7 +189,18 @@ export default function SuperAdminPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-900 mb-6">Admin</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-semibold text-gray-900">Admin</h1>
+        <button
+          onClick={() => {
+            localStorage.removeItem("super_admin_verified");
+            window.location.href = "/admin/dashboard";
+          }}
+          className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 bg-transparent cursor-pointer"
+        >
+          Exit Super Admin
+        </button>
+      </div>
 
       {/* Tab bar */}
       <div className="flex items-center gap-6 border-b border-gray-200 mb-6">
