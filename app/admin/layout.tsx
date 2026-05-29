@@ -18,7 +18,11 @@ function AdminShell({
   session,
 }: {
   children: React.ReactNode;
-  session: Session;
+  // Session | null: during the Google OAuth exchange, Supabase fires SIGNED_OUT
+  // before SIGNED_IN, briefly making the session null. Accepting null here keeps
+  // the render tree structurally stable so /admin/super's onAuthStateChange
+  // subscription stays mounted through the gap.
+  session: Session | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -116,7 +120,7 @@ export default function AdminLayout({
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
-      if (!session && pathname !== "/admin") {
+      if (!session && pathname !== "/admin" && pathname !== "/admin/super") {
         router.push("/admin");
       }
     });
@@ -125,7 +129,11 @@ export default function AdminLayout({
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (!session && pathname !== "/admin") {
+      // Never redirect away from /admin/super — that page manages its own
+      // Google OAuth step-up flow and handles session changes itself.
+      // Redirecting during the SIGNED_OUT → SIGNED_IN transition of the OAuth
+      // exchange would evict the user before verification can complete.
+      if (!session && pathname !== "/admin" && pathname !== "/admin/super") {
         router.push("/admin");
       }
     });
@@ -146,7 +154,12 @@ export default function AdminLayout({
     return <>{children}</>;
   }
 
-  if (!session) return null;
+  // For /admin/super: don't block rendering when session is null.
+  // Supabase fires SIGNED_OUT before SIGNED_IN during the OAuth exchange, so
+  // there is a brief window where session is null. Returning null here would
+  // unmount the super page and destroy its onAuthStateChange subscription,
+  // causing the SIGNED_IN event (and the verification logic) to be missed.
+  if (!session && pathname !== "/admin/super") return null;
 
   // Authenticated — wrap with property context so all admin pages can use it
   return (
