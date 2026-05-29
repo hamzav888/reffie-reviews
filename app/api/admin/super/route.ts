@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
-import { isSuperAdmin } from "@/lib/auth";
 import type { Database } from "@/lib/database.types";
 
 // ── Auth verification ────────────────────────────────────────────────────────
@@ -14,7 +13,7 @@ async function verifySuper(req: Request) {
 
   const supabase = createServiceClient();
   const { data: { user } } = await supabase.auth.getUser(token);
-  if (!user || !isSuperAdmin(user.email)) return null;
+  if (!user || !user.email?.endsWith("@reffie.me")) return null;
   return user;
 }
 

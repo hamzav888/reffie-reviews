@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
-import { isSuperAdmin } from "@/lib/auth";
 import { Toggle } from "@/lib/components/Toggle";
 import type { Tables } from "@/lib/database.types";
 
@@ -38,6 +37,8 @@ type ReviewWithProperty = Tables<"reviews"> & {
 
 const DEFAULT_BRAND_COLOR = "#10BD91";
 
+type VerifyState = "checking" | "unverified" | "denied" | "verified";
+
 function starStr(rating: number) {
   return "★".repeat(rating) + "☆".repeat(5 - rating);
 }
@@ -50,6 +51,7 @@ export default function SuperAdminPage() {
 
   const [token, setToken] = useState<string | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const [verifyState, setVerifyState] = useState<VerifyState>("checking");
 
   // Tab state
   const [tab, setTab] = useState<Tab>("properties");
@@ -61,16 +63,69 @@ export default function SuperAdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ── Auth guard ─────────────────────────────────────────────────────────────
+  // ── Step-up Google OAuth verification ──────────────────────────────────────
+  // Access is granted only when the active Supabase session belongs to a
+  // @reffie.me Google account. The result is cached in localStorage so the
+  // user isn't re-prompted on every navigation within the same browser session.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session || !isSuperAdmin(session.user.email)) {
-        router.push("/admin/dashboard");
-        return;
-      }
-      setToken(session.access_token);
+    const alreadyVerified =
+      localStorage.getItem("super_admin_verified") === "true";
+    const isOAuthCallback = new URLSearchParams(window.location.search).has(
+      "code"
+    );
+
+    if (alreadyVerified) {
+      // Re-validate: the active session must still be a @reffie.me account
+      // (guards against a stale flag after the user logs back in with a
+      // different account).
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user.email?.endsWith("@reffie.me")) {
+          setToken(session.access_token);
+          setVerifyState("verified");
+        } else {
+          localStorage.removeItem("super_admin_verified");
+          setVerifyState("unverified");
+        }
+        setAuthChecked(true);
+      });
+      return;
+    }
+
+    if (!isOAuthCallback) {
+      // Regular load with no prior verification → show the verification screen
+      setVerifyState("unverified");
       setAuthChecked(true);
+      return;
+    }
+
+    // OAuth callback: Supabase JS exchanges the code asynchronously.
+    // Use a flag to prevent both onAuthStateChange and getSession from
+    // settling the state twice.
+    const settled = { current: false };
+
+    const settle = (session: { user: { email?: string }; access_token: string } | null) => {
+      if (settled.current || !session) return;
+      settled.current = true;
+      if (session.user.email?.endsWith("@reffie.me")) {
+        localStorage.setItem("super_admin_verified", "true");
+        setToken(session.access_token);
+        setVerifyState("verified");
+      } else {
+        setVerifyState("denied");
+      }
+      setAuthChecked(true);
+    };
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      settle(session);
     });
+
+    // Also check immediately in case the session is already exchanged
+    supabase.auth.getSession().then(({ data: { session } }) => settle(session));
+
+    return () => subscription.unsubscribe();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Fetch helpers ──────────────────────────────────────────────────────────
@@ -137,6 +192,56 @@ export default function SuperAdminPage() {
     return (
       <div className="animate-pulse text-gray-400 py-8 text-sm">
         Loading...
+      </div>
+    );
+  }
+
+  if (verifyState === "unverified") {
+    return (
+      <div className="max-w-sm mx-auto py-16 text-center">
+        <h1 className="text-xl font-semibold text-gray-900 mb-2">
+          Super Admin Access
+        </h1>
+        <p className="text-sm text-gray-500 mb-8">
+          Verify your identity with a @reffie.me Google account to continue.
+        </p>
+        <button
+          onClick={() =>
+            supabase.auth.signInWithOAuth({
+              provider: "google",
+              options: {
+                redirectTo: window.location.href,
+                scopes: "email",
+              },
+            })
+          }
+          className="w-full py-2.5 rounded-xl text-white font-semibold text-sm mb-4 cursor-pointer border-0"
+          style={{ background: "#10BD91" }}
+        >
+          Verify with Google
+        </button>
+        <a
+          href="/admin/dashboard"
+          className="text-sm text-gray-400 hover:text-gray-600 underline"
+        >
+          Go back
+        </a>
+      </div>
+    );
+  }
+
+  if (verifyState === "denied") {
+    return (
+      <div className="max-w-sm mx-auto py-16 text-center">
+        <p className="text-sm text-red-600 mb-6">
+          Access denied. A @reffie.me Google account is required.
+        </p>
+        <button
+          onClick={() => router.push("/admin/dashboard")}
+          className="px-5 py-2.5 rounded-xl text-gray-600 text-sm border border-gray-200 hover:bg-gray-50 bg-white cursor-pointer"
+        >
+          Go back
+        </button>
       </div>
     );
   }

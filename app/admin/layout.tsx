@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
 import { PropertyProvider, useProperty } from "@/lib/property-context";
-import { isSuperAdmin } from "@/lib/auth";
 import type { Session } from "@supabase/supabase-js";
 
 const navItems = [
@@ -71,7 +70,7 @@ function AdminShell({
                 {item.label}
               </button>
             ))}
-            {isSuperAdmin(session.user.email) && (
+            {session?.user?.email?.endsWith("@reffie.me") === true && (
               <button
                 onClick={() => router.push("/admin/super")}
                 className={`text-sm pb-0.5 border-b-2 transition-colors bg-transparent cursor-pointer ${
