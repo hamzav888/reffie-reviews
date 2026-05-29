@@ -53,6 +53,8 @@ export default function SuperAdminPage() {
   const [debugSessionEmail, setDebugSessionEmail] = useState<string | null>(null);
   const [debugSessionExists, setDebugSessionExists] = useState<boolean | null>(null);
   const [debugLastEvent, setDebugLastEvent] = useState<string | null>(null);
+  const [debugHash, setDebugHash] = useState("");
+  const [debugSearch, setDebugSearch] = useState("");
   const [debugOAuthError, setDebugOAuthError] = useState<string | null>(null);
 
   // Tab state
@@ -66,37 +68,94 @@ export default function SuperAdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   // ── Step-up Google OAuth verification ──────────────────────────────────────
-  // Access is granted ONLY when onAuthStateChange fires SIGNED_IN or
-  // TOKEN_REFRESHED. The session.user.email in that event is the Google OAuth
-  // account email — checking it ends with @reffie.me confirms the user signed
-  // in with a @reffie.me Google account specifically.
+  // Two paths based on whether this is an OAuth callback:
   //
-  // getSession() alone NEVER grants access, even for @reffie.me emails. This
-  // enforces that Google OAuth must be completed on every visit to this page.
-  // getSession() is only used to redirect unauthenticated users and to show
-  // the verify screen for users who are logged in with email/password.
+  // Path A — OAuth callback (access_token in hash OR code= in search):
+  //   Supabase automatically processes the tokens from the URL on page load,
+  //   before any JS runs. getSession() returns the freshly-set Google session.
+  //   Grant access immediately if email ends with @reffie.me.
   //
-  // The listener is subscribed FIRST so the SIGNED_IN event from the OAuth
-  // callback isn't missed while getSession() is awaiting.
+  // Path B — Normal mount (no OAuth params in URL):
+  //   Show verify screen for logged-in (email/password) users.
+  //   Redirect unauthenticated users to /admin.
+  //
+  // onAuthStateChange handles SIGNED_IN / TOKEN_REFRESHED / USER_UPDATED as a
+  // secondary backup for both paths, set up after the URL check.
   useEffect(() => {
-    setDebugHref(window.location.href);
+    const hash = window.location.hash;
+    const search = window.location.search;
 
-    // ── Subscribe first — SIGNED_IN is the only path that grants access ───
+    setDebugHref(window.location.href);
+    setDebugHash(hash.substring(0, 50));
+    setDebugSearch(search.substring(0, 50));
+
+    // Detect OAuth callback before configuring the auth listener
+    const isOAuthCallback =
+      hash.includes("access_token") || search.includes("code=");
+
+    if (isOAuthCallback) {
+      // ── Path A: OAuth callback ─────────────────────────────────────────
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setDebugLastEvent("oauthCallback");
+        setDebugSessionExists(session !== null);
+        setDebugSessionEmail(session?.user.email ?? null);
+
+        // Clean the URL so a page refresh doesn't re-process the tokens
+        window.history.replaceState({}, "", "/admin/super");
+
+        if (!session) {
+          localStorage.removeItem("super_admin_verified");
+          setVerified("denied");
+          return;
+        }
+
+        if (session.user.email?.endsWith("@reffie.me")) {
+          localStorage.setItem("super_admin_verified", "true");
+          setToken(session.access_token);
+          setVerified(true);
+        } else {
+          localStorage.removeItem("super_admin_verified");
+          setVerified("denied");
+        }
+      });
+    } else {
+      // ── Path B: Normal mount ───────────────────────────────────────────
+      // getSession() is for routing only — never grants access on its own.
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        setDebugLastEvent("getSession");
+        setDebugSessionExists(session !== null);
+        setDebugSessionEmail(session?.user.email ?? null);
+
+        if (!session) {
+          window.location.replace("/admin");
+          return;
+        }
+
+        // Functional updater: don't override a SIGNED_IN result that may
+        // have already run if onAuthStateChange resolved before this.
+        setVerified((current) => (current === null ? false : current));
+      });
+    }
+
+    // ── Secondary path: onAuthStateChange ─────────────────────────────────
+    // Backup for both paths. Catches SIGNED_IN / TOKEN_REFRESHED /
+    // USER_UPDATED — handles races where the event fires after getSession().
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event !== "SIGNED_IN" && event !== "TOKEN_REFRESHED") return;
+      if (
+        event !== "SIGNED_IN" &&
+        event !== "TOKEN_REFRESHED" &&
+        event !== "USER_UPDATED"
+      )
+        return;
 
       setDebugLastEvent(event);
       setDebugSessionExists(session !== null);
       setDebugSessionEmail(session?.user.email ?? null);
 
-      if (!session) {
-        window.location.replace("/admin");
-        return;
-      }
+      if (!session) return;
 
-      // session.user.email here is the Google OAuth account email
       if (session.user.email?.endsWith("@reffie.me")) {
         localStorage.setItem("super_admin_verified", "true");
         setToken(session.access_token);
@@ -105,24 +164,6 @@ export default function SuperAdminPage() {
         localStorage.removeItem("super_admin_verified");
         setVerified("denied");
       }
-    });
-
-    // ── Then check the initial session (for routing only, never grants) ───
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setDebugLastEvent("getSession");
-      setDebugSessionExists(session !== null);
-      setDebugSessionEmail(session?.user.email ?? null);
-
-      if (!session) {
-        // Not logged in at all — send back to admin login
-        window.location.replace("/admin");
-        return;
-      }
-
-      // Session exists (email/password login) — always show verify screen.
-      // Use the functional updater so we don't clobber a SIGNED_IN result
-      // that may have already run if the OAuth callback resolved first.
-      setVerified((current) => (current === null ? false : current));
     });
 
     return () => subscription.unsubscribe();
@@ -261,6 +302,14 @@ export default function SuperAdminPage() {
           <p>
             <span className="font-semibold">event:</span>{" "}
             {debugLastEvent ?? "none"}
+          </p>
+          <p>
+            <span className="font-semibold">hash:</span>{" "}
+            {debugHash || "none"}
+          </p>
+          <p>
+            <span className="font-semibold">search:</span>{" "}
+            {debugSearch || "none"}
           </p>
           {debugOAuthError && (
             <p className="text-red-500">
