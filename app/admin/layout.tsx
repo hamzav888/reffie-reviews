@@ -31,8 +31,10 @@ function AdminShell({
   const [showSuperLink, setShowSuperLink] = useState(false);
 
   useEffect(() => {
-    setShowSuperLink(localStorage.getItem("super_admin_verified") === "true");
-  }, [pathname]);
+    const flag = localStorage.getItem("super_admin_verified") === "true";
+    const emailMatch = session?.user?.email?.endsWith("@reffie.me") ?? false;
+    setShowSuperLink(flag || emailMatch);
+  }, [pathname, session]);
 
   return (
     <div className="min-h-screen bg-[#FAF8F5]">
