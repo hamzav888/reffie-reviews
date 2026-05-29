@@ -36,11 +36,15 @@ function PropertyForm({
     if (!initial?.google_review_url) return "place_id";
     return initial.google_review_url.includes("placeid=") ? "place_id" : "direct_url";
   });
-  const [googleInput, setGoogleInput] = useState(() => {
+  const [googlePlaceId, setGooglePlaceId] = useState(() => {
     if (!initial?.google_review_url) return "";
     const match = initial.google_review_url.match(/placeid=([^&]+)/);
-    if (match) return match[1];
-    return initial.google_review_url;
+    return match ? match[1] : "";
+  });
+  const [googleDirectUrl, setGoogleDirectUrl] = useState(() => {
+    if (!initial?.google_review_url) return "";
+    if (!initial.google_review_url.includes("placeid=")) return initial.google_review_url;
+    return "";
   });
   const [reviewPrompt, setReviewPrompt] = useState(
     initial?.review_prompt ?? DEFAULT_REVIEW_PROMPT
@@ -69,10 +73,12 @@ function PropertyForm({
     setSaving(true);
     setErrorMsg(null);
 
-    const googleReviewUrl = googleInput
+    const activeGoogleInput =
+      googleUrlMode === "place_id" ? googlePlaceId : googleDirectUrl;
+    const googleReviewUrl = activeGoogleInput
       ? googleUrlMode === "place_id"
-        ? `https://search.google.com/local/writereview?placeid=${googleInput}`
-        : googleInput
+        ? `https://search.google.com/local/writereview?placeid=${activeGoogleInput}`
+        : activeGoogleInput
       : "";
 
     const payload = {
@@ -228,7 +234,7 @@ function PropertyForm({
         <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
           <button
             type="button"
-            onClick={() => { setGoogleUrlMode("place_id"); setGoogleInput(""); }}
+            onClick={() => setGoogleUrlMode("place_id")}
             className={`px-3 py-1.5 text-xs font-medium transition-colors ${
               googleUrlMode === "place_id"
                 ? "bg-[#10BD91] text-white"
@@ -239,7 +245,7 @@ function PropertyForm({
           </button>
           <button
             type="button"
-            onClick={() => { setGoogleUrlMode("direct_url"); setGoogleInput(""); }}
+            onClick={() => setGoogleUrlMode("direct_url")}
             className={`px-3 py-1.5 text-xs font-medium transition-colors border-l border-gray-200 ${
               googleUrlMode === "direct_url"
                 ? "bg-[#10BD91] text-white"
@@ -257,8 +263,8 @@ function PropertyForm({
             </label>
             <input
               type="text"
-              value={googleInput}
-              onChange={(e) => setGoogleInput(e.target.value.trim())}
+              value={googlePlaceId}
+              onChange={(e) => setGooglePlaceId(e.target.value.trim())}
               placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
               className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#10BD91]/20"
             />
@@ -281,8 +287,8 @@ function PropertyForm({
             </label>
             <input
               type="url"
-              value={googleInput}
-              onChange={(e) => setGoogleInput(e.target.value.trim())}
+              value={googleDirectUrl}
+              onChange={(e) => setGoogleDirectUrl(e.target.value.trim())}
               placeholder="https://g.page/r/..."
               className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#10BD91]/20"
             />
