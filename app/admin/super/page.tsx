@@ -215,9 +215,10 @@ export default function SuperAdminPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-gray-900">Admin</h1>
         <button
-          onClick={() => {
+          onClick={async () => {
             localStorage.removeItem("super_admin_verified");
-            window.location.href = "/admin/dashboard";
+            await supabase.auth.signOut();
+            window.location.href = "/admin";
           }}
           className="text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-1.5 bg-transparent cursor-pointer"
         >
