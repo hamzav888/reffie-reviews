@@ -44,8 +44,8 @@ function starStr(rating: number) {
 export default function SuperAdminPage() {
   const supabase = createBrowserClient();
 
-  // null = loading/checking, true = verified, false = verify screen, "denied" = wrong Google account
-  const [verified, setVerified] = useState<boolean | "denied" | null>(null);
+  // null = loading/checking, true = verified, false = verify screen
+  const [verified, setVerified] = useState<boolean | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
   // Tab state
@@ -59,28 +59,20 @@ export default function SuperAdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   // ── Step-up Google OAuth verification ──────────────────────────────────────
-  // Three paths, checked in priority order:
+  // Two paths:
   //
-  // Path A — localStorage flag set:
-  //   A prior Google OAuth exchange succeeded. Confirm the main app session is
-  //   still alive (getSession is used only as a session liveness check here,
-  //   never to grant access on its own). If alive, show admin UI.
+  // Path A — localStorage flag set from a prior verified session:
+  //   Confirm the session is still alive, then grant access.
   //
-  // Path B — PKCE callback (code= in query string):
-  //   Explicitly exchange the code for a session, then check email.
-  //   getSession() is NOT used here — exchangeCodeForSession is the source of
-  //   truth. Clean the URL afterward so a refresh doesn't replay the exchange.
-  //
-  // Path C — No flag, no code:
-  //   getSession() is used ONLY to decide whether to redirect to /admin (no
-  //   main app session at all) or show the verify screen. It never grants access.
+  // Path B — No flag (first visit OR post-OAuth redirect):
+  //   After Google OAuth, Supabase auto-processes the tokens during client
+  //   init (before React mounts). getSession() awaits that init, so by the
+  //   time it resolves the session holds the Google account. Check the email.
   useEffect(() => {
     const cachedVerified =
       localStorage.getItem("super_admin_verified") === "true";
-    const code = new URLSearchParams(window.location.search).get("code");
 
     if (cachedVerified) {
-      // Path A: check session liveness, then grant access
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (!session) {
           localStorage.removeItem("super_admin_verified");
@@ -90,30 +82,19 @@ export default function SuperAdminPage() {
         setToken(session.access_token);
         setVerified(true);
       });
-    } else if (code) {
-      // Path B: explicit PKCE exchange
-      window.history.replaceState({}, "", "/admin/super");
-      supabase.auth.exchangeCodeForSession(code).then(({ data, error }) => {
-        if (error || !data.session) {
-          setVerified(false);
-          return;
-        }
-        if (data.session.user.email?.endsWith("@reffie.me")) {
-          localStorage.setItem("super_admin_verified", "true");
-          setToken(data.session.access_token);
-          setVerified(true);
-        } else {
-          setVerified("denied");
-        }
-      });
     } else {
-      // Path C: redirect-to-login guard only
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (!session) {
           window.location.replace("/admin");
           return;
         }
-        setVerified(false);
+        if (session.user.email?.endsWith("@reffie.me")) {
+          localStorage.setItem("super_admin_verified", "true");
+          setToken(session.access_token);
+          setVerified(true);
+        } else {
+          setVerified(false);
+        }
       });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -182,22 +163,6 @@ export default function SuperAdminPage() {
     return (
       <div className="animate-pulse text-gray-400 py-8 text-sm">
         Loading...
-      </div>
-    );
-  }
-
-  if (verified === "denied") {
-    return (
-      <div className="max-w-sm mx-auto py-16 text-center">
-        <p className="text-sm text-red-600 mb-6">
-          Access denied. A @reffie.me Google account is required.
-        </p>
-        <a
-          href="/admin/dashboard"
-          className="text-sm text-gray-400 hover:text-gray-600 underline"
-        >
-          Go back
-        </a>
       </div>
     );
   }
