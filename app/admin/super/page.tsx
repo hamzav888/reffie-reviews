@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createBrowserClient } from "@/lib/supabase";
 import type { Tables } from "@/lib/database.types";
+import type { Session } from "@supabase/supabase-js";
 
 // ── Local types ──────────────────────────────────────────────────────────────
 
@@ -53,6 +54,7 @@ export default function SuperAdminPage() {
   const [debugSessionEmail, setDebugSessionEmail] = useState<string | null>(null);
   const [debugSessionExists, setDebugSessionExists] = useState<boolean | null>(null);
   const [debugIdentities, setDebugIdentities] = useState<string | null>(null);
+  const [debugLastEvent, setDebugLastEvent] = useState<string | null>(null);
   const [debugOAuthError, setDebugOAuthError] = useState<string | null>(null);
 
   // Tab state
@@ -66,21 +68,31 @@ export default function SuperAdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   // ── Step-up Google OAuth verification ──────────────────────────────────────
-  // Access is granted only when the active Supabase session belongs to a
-  // @reffie.me Google account AND was established via Google OAuth.
+  // Access is granted only when the active Supabase session has a linked Google
+  // identity AND the account email ends with @reffie.me.
   //
-  // The current session is ALWAYS checked on mount — localStorage alone is
-  // never enough, because a non-Google (email/password) session must still
-  // show the verify screen even if the flag was set in a prior session.
+  // onAuthStateChange is subscribed FIRST so we don't miss the SIGNED_IN event
+  // that fires after Supabase finishes processing the OAuth callback and linking
+  // the Google identity. getSession() on mount may still see the old session
+  // state before identity linking completes, so it alone is not enough for the
+  // post-OAuth case. getSession() handles the returning-visit case where the
+  // Google identity is already present from a previous OAuth flow.
   useEffect(() => {
     setDebugHref(window.location.href);
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // ── Shared verification logic ──────────────────────────────────────────
+    // Called from both onAuthStateChange and getSession() so the same check
+    // runs regardless of which path delivers the updated session first.
+    const runVerification = (session: Session | null, eventName: string) => {
+      setDebugLastEvent(eventName);
       setDebugSessionExists(session !== null);
       setDebugSessionEmail(session?.user.email ?? null);
+      setDebugIdentities(
+        JSON.stringify(session?.user.identities?.map((i) => i.provider) ?? [])
+      );
 
       if (!session) {
-        // No session — let the admin layout's auth guard redirect to /admin
+        // No session — redirect to the admin login page
         window.location.replace("/admin");
         return;
       }
@@ -94,14 +106,9 @@ export default function SuperAdminPage() {
       // identities (auto-linked by Supabase when emails match) are correctly
       // detected here — .some() returns true if any identity is "google".
       const hasGoogleIdentity =
-        session.user.identities?.some((identity) => identity.provider === "google") ??
-        false;
+        session.user.identities?.some((i) => i.provider === "google") ?? false;
       const isReffieEmail =
         session.user.email?.endsWith("@reffie.me") ?? false;
-
-      setDebugIdentities(
-        JSON.stringify(session.user.identities?.map((i) => i.provider) ?? [])
-      );
 
       if (hasGoogleIdentity && isReffieEmail) {
         // Google identity + @reffie.me — grant access
@@ -117,7 +124,28 @@ export default function SuperAdminPage() {
         localStorage.removeItem("super_admin_verified");
         setVerified(false);
       }
+    };
+
+    // ── Subscribe first ────────────────────────────────────────────────────
+    // Catches the SIGNED_IN event that fires once Supabase has fully processed
+    // the OAuth callback and the Google identity is linked on the session object.
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+        runVerification(session, event);
+      }
     });
+
+    // ── Then check the current session ────────────────────────────────────
+    // Handles returning visits where a Google identity is already present —
+    // no new OAuth redirect happened, so SIGNED_IN won't fire. If getSession()
+    // returns a verified Google session, access is granted immediately.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      runVerification(session, "getSession");
+    });
+
+    return () => subscription.unsubscribe();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Fetch helpers ──────────────────────────────────────────────────────────
@@ -253,6 +281,10 @@ export default function SuperAdminPage() {
           <p>
             <span className="font-semibold">identities:</span>{" "}
             {debugIdentities ?? "none"}
+          </p>
+          <p>
+            <span className="font-semibold">event:</span>{" "}
+            {debugLastEvent ?? "none"}
           </p>
           {debugOAuthError && (
             <p className="text-red-500">
