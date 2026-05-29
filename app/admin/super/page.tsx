@@ -69,14 +69,9 @@ export default function SuperAdminPage() {
   useEffect(() => {
     const alreadyVerified =
       localStorage.getItem("super_admin_verified") === "true";
-    const isOAuthCallback = new URLSearchParams(window.location.search).has(
-      "code"
-    );
 
+    // ── Path 1: Previously verified — re-validate the active session ────────
     if (alreadyVerified) {
-      // Re-validate: the active session must still be a @reffie.me account
-      // (guards against a stale flag after the user logs back in with a
-      // different account).
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session?.user.email?.endsWith("@reffie.me")) {
           setToken(session.access_token);
@@ -90,21 +85,34 @@ export default function SuperAdminPage() {
       return;
     }
 
-    if (!isOAuthCallback) {
-      // Regular load with no prior verification → show the verification screen
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+
+    // ── Path 2: No OAuth code and not already verified — show verify screen ─
+    if (!code) {
       setVerifyState("unverified");
       setAuthChecked(true);
       return;
     }
 
-    // OAuth callback: Supabase JS exchanges the code asynchronously.
-    // Use a flag to prevent both onAuthStateChange and getSession from
-    // settling the state twice.
-    const settled = { current: false };
+    // ── Path 3: OAuth PKCE callback — explicitly exchange code for session ───
+    // Strip the code from the URL immediately so a page reload doesn't try to
+    // re-exchange the same (single-use) PKCE code.
+    window.history.replaceState({}, "", window.location.pathname);
 
-    const settle = (session: { user: { email?: string }; access_token: string } | null) => {
-      if (settled.current || !session) return;
-      settled.current = true;
+    let settled = false;
+    const settle = (
+      session: { user: { email?: string | null }; access_token: string } | null
+    ) => {
+      if (settled) return;
+      settled = true;
+
+      if (!session) {
+        setVerifyState("denied");
+        setAuthChecked(true);
+        return;
+      }
+
       if (session.user.email?.endsWith("@reffie.me")) {
         localStorage.setItem("super_admin_verified", "true");
         setToken(session.access_token);
@@ -115,14 +123,28 @@ export default function SuperAdminPage() {
       setAuthChecked(true);
     };
 
+    // Subscribe before exchanging so we don't miss the SIGNED_IN event
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       settle(session);
     });
 
-    // Also check immediately in case the session is already exchanged
-    supabase.auth.getSession().then(({ data: { session } }) => settle(session));
+    // Explicitly exchange the PKCE code — this is the correct pattern;
+    // relying on getSession() alone races with the code processing.
+    supabase.auth
+      .exchangeCodeForSession(code)
+      .then(({ data: { session }, error }) => {
+        if (error || !session) {
+          // Exchange failed (e.g., code already consumed) — fall back to
+          // whatever active session currently exists.
+          supabase.auth
+            .getSession()
+            .then(({ data: { session: s } }) => settle(s));
+        } else {
+          settle(session);
+        }
+      });
 
     return () => subscription.unsubscribe();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
