@@ -44,8 +44,8 @@ function starStr(rating: number) {
 export default function SuperAdminPage() {
   const supabase = createBrowserClient();
 
-  // null = loading/checking, true = verified, false = not verified
-  const [verified, setVerified] = useState<boolean | null>(null);
+  // null = loading/checking, true = verified, false = verify screen, "denied" = wrong Google account
+  const [verified, setVerified] = useState<boolean | "denied" | null>(null);
   const [token, setToken] = useState<string | null>(null);
 
   // Debug state — remove once OAuth flow is confirmed working
@@ -66,48 +66,42 @@ export default function SuperAdminPage() {
 
   // ── Step-up Google OAuth verification ──────────────────────────────────────
   // Access is granted only when the active Supabase session belongs to a
-  // @reffie.me Google account. The result is cached in localStorage so the
-  // user isn't re-prompted on every navigation within the same browser session.
+  // @reffie.me Google account AND was established via Google OAuth.
   //
-  // Supabase JS v2 automatically processes the PKCE callback when getSession()
-  // is called — no manual code exchange or onAuthStateChange listeners needed.
+  // The current session is ALWAYS checked on mount — localStorage alone is
+  // never enough, because a non-Google (email/password) session must still
+  // show the verify screen even if the flag was set in a prior session.
   useEffect(() => {
     setDebugHref(window.location.href);
 
-    const alreadyVerified =
-      localStorage.getItem("super_admin_verified") === "true";
-
-    if (alreadyVerified) {
-      // Previously verified: fetch the current session to get the access
-      // token for API calls. No email re-check — localStorage is the source
-      // of truth after the one-time Google verification.
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setDebugSessionExists(session !== null);
-        setDebugSessionEmail(session?.user.email ?? null);
-        if (session) setToken(session.access_token);
-        setVerified(true);
-      });
-      return;
-    }
-
-    // Not yet verified — call getSession(). After a Google OAuth redirect,
-    // Supabase automatically exchanges the PKCE code and populates the
-    // session before getSession() resolves.
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setDebugSessionExists(session !== null);
       setDebugSessionEmail(session?.user.email ?? null);
 
-      if (session && session.user.email?.endsWith("@reffie.me")) {
-        // Capture the token before signing out so API calls still work
-        // for the lifetime of this access token (~1 hr).
-        const accessToken = session.access_token;
+      if (!session) {
+        // No session — let the admin layout's auth guard redirect to /admin
+        window.location.replace("/admin");
+        return;
+      }
+
+      const provider =
+        (session.user.app_metadata?.provider as string | undefined) ?? "";
+      const isGoogleSession = provider === "google";
+      const isReffieEmail =
+        session.user.email?.endsWith("@reffie.me") ?? false;
+
+      if (isGoogleSession && isReffieEmail) {
+        // Google + @reffie.me — grant access
         localStorage.setItem("super_admin_verified", "true");
-        // Sign out the Google OAuth session so it does not overwrite the
-        // primary email/password session on the next admin navigation.
-        await supabase.auth.signOut();
-        setToken(accessToken);
+        setToken(session.access_token);
         setVerified(true);
+      } else if (isGoogleSession && !isReffieEmail) {
+        // Google session but wrong account — deny
+        localStorage.removeItem("super_admin_verified");
+        setVerified("denied");
       } else {
+        // Email/password (or other non-Google) session — show verify screen
+        localStorage.removeItem("super_admin_verified");
         setVerified(false);
       }
     });
@@ -164,7 +158,7 @@ export default function SuperAdminPage() {
   };
 
   useEffect(() => {
-    if (!verified || !token) return;
+    if (verified !== true || !token) return;
     if (tab === "reviews") {
       loadReviews();
     } else {
@@ -181,7 +175,23 @@ export default function SuperAdminPage() {
     );
   }
 
-  if (!verified) {
+  if (verified === "denied") {
+    return (
+      <div className="max-w-sm mx-auto py-16 text-center">
+        <p className="text-sm text-red-600 mb-6">
+          Access denied. A @reffie.me Google account is required.
+        </p>
+        <a
+          href="/admin/dashboard"
+          className="text-sm text-gray-400 hover:text-gray-600 underline"
+        >
+          Go back
+        </a>
+      </div>
+    );
+  }
+
+  if (verified === false) {
     return (
       <div className="max-w-sm mx-auto py-16 text-center">
         <h1 className="text-xl font-semibold text-gray-900 mb-2">

@@ -83,7 +83,10 @@ function AdminShell({
               </button>
             )}
             <button
-              onClick={() => supabase.auth.signOut()}
+              onClick={() => {
+                localStorage.removeItem("super_admin_verified");
+                supabase.auth.signOut();
+              }}
               className="text-xs text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer"
             >
               Sign out
