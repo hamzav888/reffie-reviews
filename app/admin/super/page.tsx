@@ -52,6 +52,7 @@ export default function SuperAdminPage() {
   const [debugHref, setDebugHref] = useState("");
   const [debugSessionEmail, setDebugSessionEmail] = useState<string | null>(null);
   const [debugSessionExists, setDebugSessionExists] = useState<boolean | null>(null);
+  const [debugIdentities, setDebugIdentities] = useState<string | null>(null);
   const [debugOAuthError, setDebugOAuthError] = useState<string | null>(null);
 
   // Tab state
@@ -84,23 +85,35 @@ export default function SuperAdminPage() {
         return;
       }
 
-      const provider =
-        (session.user.app_metadata?.provider as string | undefined) ?? "";
-      const isGoogleSession = provider === "google";
+      // Use identities[] instead of app_metadata.provider — the latter keeps
+      // the original provider and does not update when a Google OAuth identity
+      // is linked to an existing email/password account. identities[] lists ALL
+      // linked providers, so hasGoogleIdentity is true as long as Google OAuth
+      // has ever been used to link this account, even if the current session was
+      // started with email/password. Accounts with both "email" and "google"
+      // identities (auto-linked by Supabase when emails match) are correctly
+      // detected here — .some() returns true if any identity is "google".
+      const hasGoogleIdentity =
+        session.user.identities?.some((identity) => identity.provider === "google") ??
+        false;
       const isReffieEmail =
         session.user.email?.endsWith("@reffie.me") ?? false;
 
-      if (isGoogleSession && isReffieEmail) {
-        // Google + @reffie.me — grant access
+      setDebugIdentities(
+        JSON.stringify(session.user.identities?.map((i) => i.provider) ?? [])
+      );
+
+      if (hasGoogleIdentity && isReffieEmail) {
+        // Google identity + @reffie.me — grant access
         localStorage.setItem("super_admin_verified", "true");
         setToken(session.access_token);
         setVerified(true);
-      } else if (isGoogleSession && !isReffieEmail) {
-        // Google session but wrong account — deny
+      } else if (hasGoogleIdentity && !isReffieEmail) {
+        // Has Google identity but wrong email — deny
         localStorage.removeItem("super_admin_verified");
         setVerified("denied");
       } else {
-        // Email/password (or other non-Google) session — show verify screen
+        // No Google identity — show verify screen (must sign in with Google first)
         localStorage.removeItem("super_admin_verified");
         setVerified(false);
       }
@@ -236,6 +249,10 @@ export default function SuperAdminPage() {
           <p>
             <span className="font-semibold">session email:</span>{" "}
             {debugSessionEmail ?? "none"}
+          </p>
+          <p>
+            <span className="font-semibold">identities:</span>{" "}
+            {debugIdentities ?? "none"}
           </p>
           {debugOAuthError && (
             <p className="text-red-500">
