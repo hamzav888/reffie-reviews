@@ -44,18 +44,9 @@ function starStr(rating: number) {
 export default function SuperAdminPage() {
   const supabase = createBrowserClient();
 
-  // null = loading/checking, true = verified, false = verify screen, "denied" = wrong Google account
-  const [verified, setVerified] = useState<boolean | "denied" | null>(null);
+  // null = loading/checking, true = verified, false = verify screen
+  const [verified, setVerified] = useState<boolean | null>(null);
   const [token, setToken] = useState<string | null>(null);
-
-  // Debug state — remove once OAuth flow is confirmed working
-  const [debugHref, setDebugHref] = useState("");
-  const [debugSessionEmail, setDebugSessionEmail] = useState<string | null>(null);
-  const [debugSessionExists, setDebugSessionExists] = useState<boolean | null>(null);
-  const [debugLastEvent, setDebugLastEvent] = useState<string | null>(null);
-  const [debugHash, setDebugHash] = useState("");
-  const [debugSearch, setDebugSearch] = useState("");
-  const [debugOAuthError, setDebugOAuthError] = useState<string | null>(null);
 
   // Tab state
   const [tab, setTab] = useState<Tab>("properties");
@@ -68,105 +59,22 @@ export default function SuperAdminPage() {
   const [error, setError] = useState<string | null>(null);
 
   // ── Step-up Google OAuth verification ──────────────────────────────────────
-  // Two paths based on whether this is an OAuth callback:
-  //
-  // Path A — OAuth callback (access_token in hash OR code= in search):
-  //   Supabase automatically processes the tokens from the URL on page load,
-  //   before any JS runs. getSession() returns the freshly-set Google session.
-  //   Grant access immediately if email ends with @reffie.me.
-  //
-  // Path B — Normal mount (no OAuth params in URL):
-  //   Show verify screen for logged-in (email/password) users.
-  //   Redirect unauthenticated users to /admin.
-  //
-  // onAuthStateChange handles SIGNED_IN / TOKEN_REFRESHED / USER_UPDATED as a
-  // secondary backup for both paths, set up after the URL check.
+  // Supabase restores the session automatically (including after Google OAuth
+  // redirect) before JS runs. getSession() is all we need on mount.
   useEffect(() => {
-    const hash = window.location.hash;
-    const search = window.location.search;
-
-    setDebugHref(window.location.href);
-    setDebugHash(hash.substring(0, 50));
-    setDebugSearch(search.substring(0, 50));
-
-    // Detect OAuth callback before configuring the auth listener
-    const isOAuthCallback =
-      hash.includes("access_token") || search.includes("code=");
-
-    if (isOAuthCallback) {
-      // ── Path A: OAuth callback ─────────────────────────────────────────
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setDebugLastEvent("oauthCallback");
-        setDebugSessionExists(session !== null);
-        setDebugSessionEmail(session?.user.email ?? null);
-
-        // Clean the URL so a page refresh doesn't re-process the tokens
-        window.history.replaceState({}, "", "/admin/super");
-
-        if (!session) {
-          localStorage.removeItem("super_admin_verified");
-          setVerified("denied");
-          return;
-        }
-
-        if (session.user.email?.endsWith("@reffie.me")) {
-          localStorage.setItem("super_admin_verified", "true");
-          setToken(session.access_token);
-          setVerified(true);
-        } else {
-          localStorage.removeItem("super_admin_verified");
-          setVerified("denied");
-        }
-      });
-    } else {
-      // ── Path B: Normal mount ───────────────────────────────────────────
-      // getSession() is for routing only — never grants access on its own.
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setDebugLastEvent("getSession");
-        setDebugSessionExists(session !== null);
-        setDebugSessionEmail(session?.user.email ?? null);
-
-        if (!session) {
-          window.location.replace("/admin");
-          return;
-        }
-
-        // Functional updater: don't override a SIGNED_IN result that may
-        // have already run if onAuthStateChange resolved before this.
-        setVerified((current) => (current === null ? false : current));
-      });
-    }
-
-    // ── Secondary path: onAuthStateChange ─────────────────────────────────
-    // Backup for both paths. Catches SIGNED_IN / TOKEN_REFRESHED /
-    // USER_UPDATED — handles races where the event fires after getSession().
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (
-        event !== "SIGNED_IN" &&
-        event !== "TOKEN_REFRESHED" &&
-        event !== "USER_UPDATED"
-      )
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        window.location.replace("/admin");
         return;
-
-      setDebugLastEvent(event);
-      setDebugSessionExists(session !== null);
-      setDebugSessionEmail(session?.user.email ?? null);
-
-      if (!session) return;
-
+      }
       if (session.user.email?.endsWith("@reffie.me")) {
         localStorage.setItem("super_admin_verified", "true");
         setToken(session.access_token);
         setVerified(true);
       } else {
-        localStorage.removeItem("super_admin_verified");
-        setVerified("denied");
+        setVerified(false);
       }
     });
-
-    return () => subscription.unsubscribe();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Fetch helpers ──────────────────────────────────────────────────────────
@@ -237,22 +145,6 @@ export default function SuperAdminPage() {
     );
   }
 
-  if (verified === "denied") {
-    return (
-      <div className="max-w-sm mx-auto py-16 text-center">
-        <p className="text-sm text-red-600 mb-6">
-          Access denied. A @reffie.me Google account is required.
-        </p>
-        <a
-          href="/admin/dashboard"
-          className="text-sm text-gray-400 hover:text-gray-600 underline"
-        >
-          Go back
-        </a>
-      </div>
-    );
-  }
-
   if (verified === false) {
     return (
       <div className="max-w-sm mx-auto py-16 text-center">
@@ -263,16 +155,14 @@ export default function SuperAdminPage() {
           Verify your identity with a @reffie.me Google account to continue.
         </p>
         <button
-          onClick={async () => {
-            setDebugOAuthError(null);
-            const { error } = await supabase.auth.signInWithOAuth({
+          onClick={() => {
+            supabase.auth.signInWithOAuth({
               provider: "google",
               options: {
                 redirectTo: window.location.origin + "/admin/super",
                 scopes: "email",
               },
             });
-            if (error) setDebugOAuthError(error.message);
           }}
           className="w-full py-2.5 rounded-xl text-white font-semibold text-sm mb-4 cursor-pointer border-0"
           style={{ background: "#10BD91" }}
@@ -285,39 +175,6 @@ export default function SuperAdminPage() {
         >
           Go back
         </a>
-
-        {/* Debug display — remove once OAuth flow is confirmed working */}
-        <div className="mt-8 text-left bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs font-mono text-gray-500 space-y-1 break-all">
-          <p>
-            <span className="font-semibold">href:</span> {debugHref}
-          </p>
-          <p>
-            <span className="font-semibold">session exists:</span>{" "}
-            {debugSessionExists === null ? "checking…" : String(debugSessionExists)}
-          </p>
-          <p>
-            <span className="font-semibold">session email:</span>{" "}
-            {debugSessionEmail ?? "none"}
-          </p>
-          <p>
-            <span className="font-semibold">event:</span>{" "}
-            {debugLastEvent ?? "none"}
-          </p>
-          <p>
-            <span className="font-semibold">hash:</span>{" "}
-            {debugHash || "none"}
-          </p>
-          <p>
-            <span className="font-semibold">search:</span>{" "}
-            {debugSearch || "none"}
-          </p>
-          {debugOAuthError && (
-            <p className="text-red-500">
-              <span className="font-semibold">oauth error:</span>{" "}
-              {debugOAuthError}
-            </p>
-          )}
-        </div>
       </div>
     );
   }
