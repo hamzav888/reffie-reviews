@@ -1,18 +1,9 @@
 /**
- * Returns true if the given email belongs to a configured super-admin.
+ * Returns true if the given email belongs to the Reffie team (@reffie.me).
  *
- * Super-admin emails are stored in NEXT_PUBLIC_SUPER_ADMIN_EMAILS as a
- * comma-separated list (e.g. "alice@example.com,bob@example.com").
- * The NEXT_PUBLIC_ prefix makes the value available client-side so the
- * nav link can be shown/hidden without an extra API call.
- *
+ * Used client-side (nav visibility, page guards) and server-side (API route auth).
  * Comparison is case-insensitive.
  */
 export function isSuperAdmin(email: string | undefined | null): boolean {
-  if (!email) return false;
-  const allowed = (process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-  return allowed.includes(email.toLowerCase());
+  return typeof email === "string" && email.toLowerCase().endsWith("@reffie.me");
 }

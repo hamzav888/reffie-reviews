@@ -111,7 +111,16 @@ export default function AdminLayout({
   const supabase = createBrowserClient();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (
+        session &&
+        session.user.app_metadata?.provider === "google" &&
+        !session.user.email?.toLowerCase().endsWith("@reffie.me")
+      ) {
+        await supabase.auth.signOut();
+        router.push("/admin?error=restricted");
+        return;
+      }
       setSession(session);
       setLoading(false);
       if (!session && pathname !== "/admin") {
@@ -121,7 +130,16 @@ export default function AdminLayout({
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (
+        session &&
+        session.user.app_metadata?.provider === "google" &&
+        !session.user.email?.toLowerCase().endsWith("@reffie.me")
+      ) {
+        await supabase.auth.signOut();
+        router.push("/admin?error=restricted");
+        return;
+      }
       setSession(session);
       if (!session && pathname !== "/admin") {
         router.push("/admin");
@@ -148,7 +166,7 @@ export default function AdminLayout({
 
   // Authenticated — wrap with property context so all admin pages can use it
   return (
-    <PropertyProvider>
+    <PropertyProvider session={session}>
       <AdminShell session={session}>{children}</AdminShell>
     </PropertyProvider>
   );

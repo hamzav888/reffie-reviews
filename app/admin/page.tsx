@@ -9,6 +9,11 @@ export default function AdminLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorParam] = useState(() =>
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("error")
+      : null
+  );
   const router = useRouter();
   const supabase = createBrowserClient();
 
@@ -31,15 +36,31 @@ export default function AdminLogin() {
     router.push("/admin/dashboard");
   };
 
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        queryParams: { hd: "reffie.me" },
+        redirectTo: `${window.location.origin}/admin/dashboard`,
+      },
+    });
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FAF8F5] px-4">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 w-full max-w-sm">
         <h1 className="text-xl font-bold text-center text-gray-900 mb-1">
-          <span style={{ color: '#10BD91' }}>Reffie</span> Reviews
+          <span style={{ color: "#10BD91" }}>Reffie</span> Reviews
         </h1>
         <p className="text-sm text-gray-500 text-center mb-6">
           Admin Dashboard
         </p>
+
+        {errorParam === "restricted" && (
+          <p className="text-xs text-red-600 bg-red-50 p-2 rounded mb-4">
+            Access restricted to Reffie team members.
+          </p>
+        )}
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
@@ -76,11 +97,22 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2.5 rounded-xl text-white font-semibold text-sm disabled:opacity-50" style={{ background: '#10BD91' }}
+            className="w-full py-2.5 rounded-xl text-white font-semibold text-sm disabled:opacity-50"
+            style={{ background: "#10BD91" }}
           >
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
+
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            className="text-xs text-gray-400 hover:text-gray-600 bg-transparent border-none cursor-pointer"
+          >
+            Admin login
+          </button>
+        </div>
       </div>
     </div>
   );
