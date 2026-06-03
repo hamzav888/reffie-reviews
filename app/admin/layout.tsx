@@ -112,10 +112,12 @@ export default function AdminLayout({
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) console.log('SESSION USER DEBUG:', JSON.stringify(session.user, null, 2));
       if (
         session &&
-        session.user.app_metadata?.provider === "google" &&
+        Array.isArray(session.user.identities) &&
+        session.user.identities.some(
+          (id) => id.provider === "google" && id.last_sign_in_at === session.user.last_sign_in_at
+        ) &&
         !session.user.email?.toLowerCase().endsWith("@reffie.me")
       ) {
         await supabase.auth.signOut();
@@ -134,7 +136,10 @@ export default function AdminLayout({
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (
         session &&
-        session.user.app_metadata?.provider === "google" &&
+        Array.isArray(session.user.identities) &&
+        session.user.identities.some(
+          (id) => id.provider === "google" && id.last_sign_in_at === session.user.last_sign_in_at
+        ) &&
         !session.user.email?.toLowerCase().endsWith("@reffie.me")
       ) {
         await supabase.auth.signOut();
