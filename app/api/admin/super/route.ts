@@ -10,10 +10,20 @@ import type { Database } from "@/lib/database.types";
 async function verifySuper(req: Request) {
   const raw = req.headers.get("Authorization") ?? "";
   const token = raw.startsWith("Bearer ") ? raw.slice(7).trim() : raw.trim();
-  if (!token) return null;
+  if (!token) {
+    console.log('SUPER ADMIN API DEBUG', { stage: 'no-token', method: req.method });
+    return null;
+  }
 
   const supabase = createServiceClient();
   const { data: { user } } = await supabase.auth.getUser(token);
+  console.log('SUPER ADMIN API DEBUG', {
+    stage: 'post-getUser',
+    method: req.method,
+    hasUser: !!user,
+    email: user?.email,
+    isSuperAdminResult: user ? isSuperAdmin(user) : false,
+  });
   if (!user || !isSuperAdmin(user)) return null;
   return user;
 }
