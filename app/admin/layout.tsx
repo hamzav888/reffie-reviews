@@ -112,6 +112,20 @@ export default function AdminLayout({
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
+        console.log('SUPER ADMIN DEBUG', {
+          email: session.user.email,
+          topLastSignIn: session.user.last_sign_in_at,
+          identities: session.user.identities?.map(i => ({
+            provider: i.provider,
+            last_sign_in_at: i.last_sign_in_at,
+          })),
+          matches: session.user.identities?.some(
+            (id) => id.provider === 'google' &&
+                    id.last_sign_in_at === session.user.last_sign_in_at
+          ),
+        });
+      }
       if (
         session &&
         Array.isArray(session.user.identities) &&
