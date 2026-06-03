@@ -684,6 +684,12 @@ function UsersTab({
 
   return (
     <div className="space-y-4">
+      <div className="bg-amber-50 border border-amber-200 text-amber-900 text-sm rounded-lg p-3">
+        <strong>Heads up:</strong> Do not create property manager accounts with @reffie.me
+        emails. Supabase links accounts by email, which breaks super admin permissions on
+        linked accounts. Use a non-@reffie.me email for property managers.
+      </div>
+
       {/* Create button */}
       <div className="flex justify-end">
         <button

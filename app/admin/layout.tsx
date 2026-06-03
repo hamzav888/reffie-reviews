@@ -112,25 +112,9 @@ export default function AdminLayout({
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) {
-        console.log('SUPER ADMIN DEBUG', {
-          email: session.user.email,
-          topLastSignIn: session.user.last_sign_in_at,
-          iss: session.user.user_metadata?.iss,
-          user_metadata: session.user.user_metadata,
-          app_metadata: session.user.app_metadata,
-          identities: session.user.identities?.map(i => ({
-            provider: i.provider,
-            last_sign_in_at: i.last_sign_in_at,
-          })),
-        });
-      }
       if (
         session &&
-        Array.isArray(session.user.identities) &&
-        session.user.identities.some(
-          (id) => id.provider === "google" && id.last_sign_in_at === session.user.last_sign_in_at
-        ) &&
+        session.user.user_metadata?.iss === "https://accounts.google.com" &&
         !session.user.email?.toLowerCase().endsWith("@reffie.me")
       ) {
         await supabase.auth.signOut();
@@ -149,10 +133,7 @@ export default function AdminLayout({
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (
         session &&
-        Array.isArray(session.user.identities) &&
-        session.user.identities.some(
-          (id) => id.provider === "google" && id.last_sign_in_at === session.user.last_sign_in_at
-        ) &&
+        session.user.user_metadata?.iss === "https://accounts.google.com" &&
         !session.user.email?.toLowerCase().endsWith("@reffie.me")
       ) {
         await supabase.auth.signOut();

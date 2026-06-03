@@ -33,6 +33,12 @@ export default function AdminLogin() {
     setError("");
     setLoading(true);
 
+    if (email.toLowerCase().endsWith("@reffie.me")) {
+      setError("Reffie team members must use Admin login below.");
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
