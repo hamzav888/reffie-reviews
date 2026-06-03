@@ -51,7 +51,7 @@ export default function AdminLogin() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        queryParams: { hd: "reffie.me" },
+        queryParams: { hd: "reffie.me", prompt: "select_account" },
         redirectTo: `${window.location.origin}/admin/dashboard`,
       },
     });
