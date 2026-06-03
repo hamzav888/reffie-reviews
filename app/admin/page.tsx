@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
 
@@ -14,8 +14,19 @@ export default function AdminLogin() {
       ? new URLSearchParams(window.location.search).get("error")
       : null
   );
+  const [sessionChecked, setSessionChecked] = useState(false);
   const router = useRouter();
   const supabase = createBrowserClient();
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        router.push("/admin/dashboard");
+      } else {
+        setSessionChecked(true);
+      }
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,14 +48,17 @@ export default function AdminLogin() {
   };
 
   const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         queryParams: { hd: "reffie.me" },
         redirectTo: `${window.location.origin}/admin/dashboard`,
       },
     });
+    if (error) setError(error.message);
   };
+
+  if (!sessionChecked) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#FAF8F5] px-4">
