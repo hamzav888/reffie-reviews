@@ -112,6 +112,7 @@ export default function AdminLayout({
 
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) console.log('SESSION USER DEBUG:', JSON.stringify(session.user, null, 2));
       if (
         session &&
         session.user.app_metadata?.provider === "google" &&
