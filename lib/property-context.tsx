@@ -9,6 +9,7 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
+import { isSuperAdmin } from "@/lib/auth";
 import type { Session } from "@supabase/supabase-js";
 import type { Tables } from "@/lib/database.types";
 
@@ -48,9 +49,7 @@ export function PropertyProvider({
   const [loading, setLoading] = useState(true);
 
   const fetchProperties = useCallback(async () => {
-    const isReffie =
-      typeof session.user.email === "string" &&
-      session.user.email.toLowerCase().endsWith("@reffie.me");
+    const isReffie = isSuperAdmin(session.user);
 
     let props: PropertyRow[] = [];
 

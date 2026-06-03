@@ -14,7 +14,7 @@ async function verifySuper(req: Request) {
 
   const supabase = createServiceClient();
   const { data: { user } } = await supabase.auth.getUser(token);
-  if (!user || !isSuperAdmin(user.email)) return null;
+  if (!user || !isSuperAdmin(user)) return null;
   return user;
 }
 

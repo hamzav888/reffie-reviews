@@ -71,7 +71,7 @@ function AdminShell({
                 {item.label}
               </button>
             ))}
-            {isSuperAdmin(session.user.email) && (
+            {isSuperAdmin(session.user) && (
               <button
                 onClick={() => router.push("/admin/super")}
                 className={`text-sm pb-0.5 border-b-2 transition-colors bg-transparent cursor-pointer ${

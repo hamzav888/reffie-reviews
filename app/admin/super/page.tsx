@@ -64,7 +64,7 @@ export default function SuperAdminPage() {
   // ── Auth guard ─────────────────────────────────────────────────────────────
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session || !isSuperAdmin(session.user.email)) {
+      if (!session || !isSuperAdmin(session.user)) {
         router.push("/admin/dashboard");
         return;
       }
