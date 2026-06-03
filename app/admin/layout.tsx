@@ -116,14 +116,13 @@ export default function AdminLayout({
         console.log('SUPER ADMIN DEBUG', {
           email: session.user.email,
           topLastSignIn: session.user.last_sign_in_at,
+          iss: session.user.user_metadata?.iss,
+          user_metadata: session.user.user_metadata,
+          app_metadata: session.user.app_metadata,
           identities: session.user.identities?.map(i => ({
             provider: i.provider,
             last_sign_in_at: i.last_sign_in_at,
           })),
-          matches: session.user.identities?.some(
-            (id) => id.provider === 'google' &&
-                    id.last_sign_in_at === session.user.last_sign_in_at
-          ),
         });
       }
       if (
