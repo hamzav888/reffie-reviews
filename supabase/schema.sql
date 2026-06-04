@@ -71,21 +71,29 @@ CREATE POLICY "Authenticated users can insert properties"
   ON properties FOR INSERT
   WITH CHECK (auth.role() = 'authenticated');
 
--- Only the assigned manager can update their property
-CREATE POLICY "Managers can update their properties"
+-- Assigned managers OR @reffie.me super admins can update a property
+CREATE POLICY "Managers and super admins can update properties"
   ON properties FOR UPDATE
-  USING (EXISTS (
-    SELECT 1 FROM property_managers
-    WHERE property_id = properties.id AND user_id = auth.uid()
-  ));
+  USING (
+    EXISTS (
+      SELECT 1 FROM property_managers
+      WHERE property_managers.property_id = properties.id
+        AND property_managers.user_id = auth.uid()
+    )
+    OR (auth.jwt() ->> 'email') ILIKE '%@reffie.me'
+  );
 
--- Only the assigned manager can delete their property
-CREATE POLICY "Managers can delete their properties"
+-- Assigned managers OR @reffie.me super admins can delete a property
+CREATE POLICY "Managers and super admins can delete properties"
   ON properties FOR DELETE
-  USING (EXISTS (
-    SELECT 1 FROM property_managers
-    WHERE property_id = properties.id AND user_id = auth.uid()
-  ));
+  USING (
+    EXISTS (
+      SELECT 1 FROM property_managers
+      WHERE property_managers.property_id = properties.id
+        AND property_managers.user_id = auth.uid()
+    )
+    OR (auth.jwt() ->> 'email') ILIKE '%@reffie.me'
+  );
 
 -- Reviews can be inserted by anyone (public form)
 -- but only through the API (service role), not directly
