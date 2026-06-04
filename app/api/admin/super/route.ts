@@ -10,22 +10,28 @@ import type { Database } from "@/lib/database.types";
 async function verifySuper(req: Request) {
   const raw = req.headers.get("Authorization") ?? "";
   const token = raw.startsWith("Bearer ") ? raw.slice(7).trim() : raw.trim();
-  if (!token) {
-    console.log('SUPER ADMIN API DEBUG', { stage: 'no-token', method: req.method });
-    return null;
-  }
+  if (!token) return null;
 
   const supabase = createServiceClient();
   const { data: { user } } = await supabase.auth.getUser(token);
-  console.log('SUPER ADMIN API DEBUG', {
-    stage: 'post-getUser',
-    method: req.method,
-    hasUser: !!user,
-    email: user?.email,
-    isSuperAdminResult: user ? isSuperAdmin(user) : false,
-  });
   if (!user || !isSuperAdmin(user)) return null;
   return user;
+}
+
+async function resolveSlug(
+  supabase: ReturnType<typeof createServiceClient>,
+  baseSlug: string,
+  excludeId?: string
+): Promise<string> {
+  let candidate = baseSlug;
+  let suffix = 2;
+  while (true) {
+    let query = supabase.from("properties").select("id").eq("slug", candidate);
+    if (excludeId) query = query.neq("id", excludeId);
+    const { data } = await query;
+    if (!data?.length) return candidate;
+    candidate = `${baseSlug}-${suffix++}`;
+  }
 }
 
 // ── Shared response helpers ──────────────────────────────────────────────────
@@ -153,9 +159,15 @@ export async function POST(req: Request) {
   const { action } = body;
 
   if (action === "create_property") {
+    const name = body.name as string;
+    const baseSlug = body.slug as string;
+    if (!name || !baseSlug) return badRequest("name and slug are required.");
+
+    const resolvedSlug = await resolveSlug(supabase, baseSlug);
+
     const payload = {
-      name: body.name as string,
-      slug: body.slug as string,
+      name,
+      slug: resolvedSlug,
       brand_color: (body.brand_color as string) ?? "#10BD91",
       google_review_url: (body.google_review_url as string) ?? "",
       logo_url: (body.logo_url as string | null) ?? null,
@@ -169,12 +181,8 @@ export async function POST(req: Request) {
         unit_type: false,
       },
       review_flow_enabled: (body.review_flow_enabled as boolean) ?? true,
-      name_requirement: (body.name_requirement as string) ?? 'required_all',
+      name_requirement: (body.name_requirement as string) ?? "required_all",
     };
-
-    if (!payload.name || !payload.slug) {
-      return badRequest("name and slug are required.");
-    }
 
     const { data, error } = await supabase
       .from("properties")
@@ -183,7 +191,7 @@ export async function POST(req: Request) {
       .single();
 
     if (error) return serverError(error.message);
-    return ok({ ok: true, id: data.id });
+    return ok({ ok: true, id: data.id, slug: resolvedSlug });
   }
 
   if (action === "create_user") {
@@ -233,13 +241,20 @@ export async function PATCH(req: Request) {
   if (typeof id !== "string" || !id) return badRequest("id is required.");
 
   const supabase = createServiceClient();
+
+  // Resolve slug collision if a new slug is being set
+  if (typeof fields.slug === "string" && fields.slug) {
+    fields.slug = await resolveSlug(supabase, fields.slug, id);
+  }
+
   const { error } = await supabase
     .from("properties")
     .update(fields as Partial<Database["public"]["Tables"]["properties"]["Update"]>)
     .eq("id", id);
 
   if (error) return serverError(error.message);
-  return ok();
+  const resolvedSlug = typeof fields.slug === "string" ? fields.slug : undefined;
+  return ok(resolvedSlug !== undefined ? { ok: true, slug: resolvedSlug } : undefined);
 }
 
 // ── DELETE ───────────────────────────────────────────────────────────────────

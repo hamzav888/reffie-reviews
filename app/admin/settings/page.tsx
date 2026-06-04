@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
 import { useProperty } from "@/lib/property-context";
+import { generateSlug } from "@/lib/slug";
 import type { Tables } from "@/lib/database.types";
 
 type PropertyRow = Tables<"properties">;
@@ -28,6 +29,11 @@ function PropertyForm({
 
   const [name, setName] = useState(initial?.name ?? "");
   const [slug, setSlug] = useState(initial?.slug ?? "");
+
+  // Auto-generate slug from name only in create mode
+  useEffect(() => {
+    if (!initial) setSlug(generateSlug(name));
+  }, [name, initial]);
   const [logoUrl, setLogoUrl] = useState(initial?.logo_url ?? "");
   const [brandColor, setBrandColor] = useState(
     initial?.brand_color ?? DEFAULT_BRAND_COLOR
@@ -84,28 +90,26 @@ function PropertyForm({
         : activeGoogleInput
       : "";
 
-    const payload = {
-      name,
-      slug,
-      logo_url: logoUrl || null,
-      brand_color: brandColor,
-      google_review_url: googleReviewUrl,
-      review_prompt: reviewPrompt,
-      negative_prompt: negativePrompt,
-      optional_fields: {
-        name: optName,
-        tour_guide: optTourGuide,
-        unit_type: optUnitType,
-      },
-      review_flow_enabled: reviewFlowEnabled,
-      name_requirement: nameRequirement,
-    };
-
     if (initial) {
-      // Edit mode
+      // Edit mode — slug is never changed via this path
+      const updatePayload = {
+        name,
+        logo_url: logoUrl || null,
+        brand_color: brandColor,
+        google_review_url: googleReviewUrl,
+        review_prompt: reviewPrompt,
+        negative_prompt: negativePrompt,
+        optional_fields: {
+          name: optName,
+          tour_guide: optTourGuide,
+          unit_type: optUnitType,
+        },
+        review_flow_enabled: reviewFlowEnabled,
+        name_requirement: nameRequirement,
+      };
       const { error } = await supabase
         .from("properties")
-        .update(payload)
+        .update(updatePayload)
         .eq("id", initial.id);
       if (error) {
         setErrorMsg(error.message);
@@ -113,32 +117,38 @@ function PropertyForm({
         return;
       }
     } else {
-      // Create mode: insert property then link to current user
-      const { data, error } = await supabase
-        .from("properties")
-        .insert(payload)
-        .select("id")
-        .single();
-
-      if (error || !data) {
-        setErrorMsg(error?.message ?? "Failed to create property.");
+      // Create mode — use API route for server-side collision resolution
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const res = await fetch("/api/properties", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session?.access_token ?? ""}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name,
+          slug,
+          logo_url: logoUrl || null,
+          brand_color: brandColor,
+          google_review_url: googleReviewUrl,
+          review_prompt: reviewPrompt,
+          negative_prompt: negativePrompt,
+          optional_fields: {
+            name: optName,
+            tour_guide: optTourGuide,
+            unit_type: optUnitType,
+          },
+          review_flow_enabled: reviewFlowEnabled,
+          name_requirement: nameRequirement,
+        }),
+      });
+      const json = (await res.json()) as { id?: string; slug?: string; error?: string };
+      if (!res.ok) {
+        setErrorMsg(json.error ?? "Failed to create property.");
         setSaving(false);
         return;
-      }
-
-      // Link the new property to the current user
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const { error: pmError } = await supabase
-          .from("property_managers")
-          .insert({ user_id: user.id, property_id: data.id });
-        if (pmError) {
-          setErrorMsg(pmError.message);
-          setSaving(false);
-          return;
-        }
       }
     }
 
@@ -175,23 +185,17 @@ function PropertyForm({
           <label className="text-xs font-medium text-gray-600 block mb-1">
             Slug (URL path)
           </label>
-          <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden focus-within:ring-2 focus-within:ring-[#10BD91]/20">
+          <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden bg-gray-50">
             <span className="px-3 py-2.5 text-sm text-gray-400 bg-gray-50 border-r border-gray-200 select-none">
               /r/
             </span>
-            <input
-              type="text"
-              value={slug}
-              onChange={(e) =>
-                setSlug(
-                  e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-")
-                )
-              }
-              required
-              placeholder="sunrise-apartments"
-              className="flex-1 px-3 py-2.5 text-sm focus:outline-none bg-transparent"
-            />
+            <span className="flex-1 px-3 py-2.5 text-sm text-gray-500 font-mono select-all">
+              {slug || <span className="text-gray-300">auto-generated</span>}
+            </span>
           </div>
+          {!initial && (
+            <p className="text-xs text-gray-400 mt-1">Auto-generated from property name</p>
+          )}
         </div>
 
         <div>

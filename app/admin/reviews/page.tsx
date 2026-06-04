@@ -15,6 +15,14 @@ export default function ReviewsPage() {
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
   const [archiveView, setArchiveView] = useState<"active" | "archived">("active");
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+
+  const toggleComment = (id: string) =>
+    setExpandedComments((prev) => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
   const [filterRating, setFilterRating] = useState<number | "all">("all");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
@@ -266,9 +274,23 @@ export default function ReviewsPage() {
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 max-w-xs">
                       {review.comment ? (
-                        <span className="block leading-relaxed">
-                          {review.comment}
-                        </span>
+                        review.comment.length > 80 ? (
+                          <span className="leading-relaxed">
+                            {expandedComments.has(review.id)
+                              ? review.comment
+                              : review.comment.slice(0, 80) + "…"}
+                            {" "}
+                            <button
+                              type="button"
+                              onClick={() => toggleComment(review.id)}
+                              className="text-[#10BD91] text-xs hover:underline bg-transparent border-none cursor-pointer p-0 shrink-0"
+                            >
+                              {expandedComments.has(review.id) ? "Show less" : "Read more"}
+                            </button>
+                          </span>
+                        ) : (
+                          <span className="block leading-relaxed">{review.comment}</span>
+                        )
                       ) : (
                         <span className="text-gray-400">—</span>
                       )}

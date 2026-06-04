@@ -15,6 +15,14 @@ export default function DashboardPage() {
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+
+  const toggleComment = (id: string) =>
+    setExpandedComments((prev) => {
+      const s = new Set(prev);
+      s.has(id) ? s.delete(id) : s.add(id);
+      return s;
+    });
 
   type SortColumn = "date" | "rating" | "name" | "comment" | "google";
   type SortDirection = "asc" | "desc";
@@ -303,11 +311,23 @@ export default function DashboardPage() {
                       {review.reviewer_name ?? "—"}
                     </td>
                     <td className="px-6 py-3 text-sm text-gray-600 max-w-xs">
-                      {review.comment
-                        ? review.comment.length > 80
-                          ? review.comment.slice(0, 80) + "…"
-                          : review.comment
-                        : "—"}
+                      {review.comment ? (
+                        review.comment.length > 80 ? (
+                          <span>
+                            {expandedComments.has(review.id)
+                              ? review.comment
+                              : review.comment.slice(0, 80) + "…"}
+                            {" "}
+                            <button
+                              type="button"
+                              onClick={() => toggleComment(review.id)}
+                              className="text-[#10BD91] text-xs hover:underline bg-transparent border-none cursor-pointer p-0 shrink-0"
+                            >
+                              {expandedComments.has(review.id) ? "Show less" : "Read more"}
+                            </button>
+                          </span>
+                        ) : review.comment
+                      ) : "—"}
                     </td>
                     <td className="px-6 py-3">
                       {review.share_outcome === "confirmed" ? (
@@ -396,11 +416,23 @@ export default function DashboardPage() {
                         {review.reviewer_name ?? "—"}
                       </td>
                       <td className="px-6 py-3 text-sm text-gray-600 max-w-xs">
-                        {review.comment
-                          ? review.comment.length > 80
-                            ? review.comment.slice(0, 80) + "…"
-                            : review.comment
-                          : "—"}
+                        {review.comment ? (
+                          review.comment.length > 80 ? (
+                            <span>
+                              {expandedComments.has(review.id)
+                                ? review.comment
+                                : review.comment.slice(0, 80) + "…"}
+                              {" "}
+                              <button
+                                type="button"
+                                onClick={() => toggleComment(review.id)}
+                                className="text-[#10BD91] text-xs hover:underline bg-transparent border-none cursor-pointer p-0 shrink-0"
+                              >
+                                {expandedComments.has(review.id) ? "Show less" : "Read more"}
+                              </button>
+                            </span>
+                          ) : review.comment
+                        ) : "—"}
                       </td>
                       <td className="px-6 py-3">
                         {review.google_clicked ? (

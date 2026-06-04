@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
 import { isSuperAdmin } from "@/lib/auth";
 import { Toggle } from "@/lib/components/Toggle";
+import { generateSlug } from "@/lib/slug";
 import type { Tables } from "@/lib/database.types";
 
 // ── Local types ──────────────────────────────────────────────────────────────
@@ -393,6 +394,14 @@ function PropertyForm({
 }) {
   const [name, setName] = useState(initial?.name ?? "");
   const [slug, setSlug] = useState(initial?.slug ?? "");
+  const [slugEditable, setSlugEditable] = useState(false);
+  const [slugError, setSlugError] = useState<string | null>(null);
+
+  // Auto-generate slug from name in create mode when not overriding
+  useEffect(() => {
+    if (!slugEditable && !initial) setSlug(generateSlug(name));
+  }, [name, slugEditable, initial]);
+
   const [brandColor, setBrandColor] = useState(
     initial?.brand_color ?? DEFAULT_BRAND_COLOR
   );
@@ -500,16 +509,53 @@ function PropertyForm({
           <label className="text-xs font-medium text-gray-600 block mb-1">
             Slug
           </label>
-          <input
-            type="text"
-            value={slug}
-            onChange={(e) =>
-              setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))
-            }
-            required
-            placeholder="sunrise-apartments"
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#10BD91]/20"
-          />
+          {slugEditable ? (
+            <>
+              <input
+                type="text"
+                value={slug}
+                onChange={(e) => {
+                  const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-");
+                  setSlug(val);
+                  setSlugError(
+                    !val || /^-|-$/.test(val)
+                      ? "Slug cannot be empty or start/end with a hyphen."
+                      : null
+                  );
+                }}
+                required
+                placeholder="sunrise-apartments"
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#10BD91]/20"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setSlug(generateSlug(name));
+                  setSlugEditable(false);
+                  setSlugError(null);
+                }}
+                className="mt-1 text-xs text-[#10BD91] hover:underline bg-transparent border-none cursor-pointer p-0"
+              >
+                Auto-generate
+              </button>
+              {slugError && (
+                <p className="text-xs text-red-500 mt-1">{slugError}</p>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm font-mono bg-gray-50 text-gray-500 select-all">
+                {slug || <span className="text-gray-300">auto-generated</span>}
+              </div>
+              <button
+                type="button"
+                onClick={() => setSlugEditable(true)}
+                className="mt-1 text-xs text-[#10BD91] hover:underline bg-transparent border-none cursor-pointer p-0"
+              >
+                Change slug
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -601,7 +647,7 @@ function PropertyForm({
       <div className="flex gap-2 pt-1">
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || !!slugError}
           className="px-4 py-2 rounded-xl text-white text-sm font-medium disabled:opacity-50"
           style={{ background: "#10BD91" }}
         >
