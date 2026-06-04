@@ -19,8 +19,8 @@ CREATE TABLE properties (
   negative_prompt TEXT NOT NULL DEFAULT 'What could we do better?',
   optional_fields JSONB NOT NULL DEFAULT '{"name": true, "tour_guide": false, "unit_type": false}',
   review_flow_enabled BOOLEAN NOT NULL DEFAULT true,
-  require_name_positive BOOLEAN NOT NULL DEFAULT true,
-  require_name_negative BOOLEAN NOT NULL DEFAULT true
+  name_requirement TEXT NOT NULL DEFAULT 'required_all'
+    CHECK (name_requirement IN ('required_all','required_positive','required_negative','optional_all','hidden'))
 );
 
 -- ============================================

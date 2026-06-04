@@ -66,8 +66,7 @@ export interface Property {
     unit_type: boolean;
   };
   review_flow_enabled: boolean;
-  require_name_positive: boolean;
-  require_name_negative: boolean;
+  name_requirement: 'required_all' | 'required_positive' | 'required_negative' | 'optional_all' | 'hidden';
 }
 
 export interface Review {

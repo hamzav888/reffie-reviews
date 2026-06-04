@@ -6,6 +6,19 @@ import type { Property } from "@/lib/validation";
 
 type Screen = 1 | "2a" | "2b" | 3 | 4;
 
+// ── Name behavior helper ─────────────────────────────────────────────────────
+
+type NameBehavior = 'hidden' | 'optional' | 'required';
+
+function getNameBehavior(requirement: string, rating: number): NameBehavior {
+  if (requirement === 'hidden') return 'hidden';
+  if (requirement === 'optional_all') return 'optional';
+  if (requirement === 'required_all') return 'required';
+  if (requirement === 'required_positive') return rating >= 4 ? 'required' : 'optional';
+  if (requirement === 'required_negative') return rating <= 3 ? 'required' : 'optional';
+  return 'required'; // safe fallback
+}
+
 // ── Google Prompt Screen ────────────────────────────────────────────────────
 // Isolated component so its useEffect runs exactly once on mount
 function GooglePromptScreen({
@@ -185,7 +198,7 @@ function OptionalFields({
   brandColor,
   showTourGuide,
   showUnitType,
-  nameRequired,
+  nameBehavior,
 }: {
   reviewerName: string;
   onReviewerNameChange: (v: string) => void;
@@ -196,25 +209,27 @@ function OptionalFields({
   brandColor: string;
   showTourGuide: boolean;
   showUnitType: boolean;
-  nameRequired: boolean;
+  nameBehavior: NameBehavior;
 }) {
   return (
     <>
-      <div>
-        <label className="text-xs font-medium text-gray-600 block mb-1">
-          Your Name{!nameRequired && (
-            <span className="font-normal text-gray-400"> (optional)</span>
-          )}
-        </label>
-        <input
-          type="text"
-          value={reviewerName}
-          onChange={(e) => onReviewerNameChange(e.target.value)}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none"
-          onFocus={(e) => (e.target.style.boxShadow = `0 0 0 2px ${brandColor}33`)}
-          onBlur={(e) => (e.target.style.boxShadow = "")}
-        />
-      </div>
+      {nameBehavior !== 'hidden' && (
+        <div>
+          <label className="text-xs font-medium text-gray-600 block mb-1">
+            Your Name{nameBehavior === 'optional' && (
+              <span className="font-normal text-gray-400"> (optional)</span>
+            )}
+          </label>
+          <input
+            type="text"
+            value={reviewerName}
+            onChange={(e) => onReviewerNameChange(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none"
+            onFocus={(e) => (e.target.style.boxShadow = `0 0 0 2px ${brandColor}33`)}
+            onBlur={(e) => (e.target.style.boxShadow = "")}
+          />
+        </div>
+      )}
 
       {showTourGuide && (
         <div>
@@ -309,12 +324,9 @@ export default function ReviewPage() {
     setRating(star);
     setSubmitError(null);
 
-    const requireName =
-      star >= 4
-        ? property.require_name_positive
-        : property.require_name_negative;
+    const behavior = getNameBehavior(property.name_requirement, star);
 
-    if (requireName) {
+    if (behavior === 'required') {
       // Skip partial save — navigate directly to the form screen
       if (star >= 4) {
         setScreen("2a");
@@ -391,12 +403,9 @@ export default function ReviewPage() {
     e.preventDefault();
     if (!property || submitting) return;
 
-    const requireName =
-      rating >= 4
-        ? property.require_name_positive
-        : property.require_name_negative;
+    const behavior = getNameBehavior(property.name_requirement, rating);
 
-    if (requireName && !reviewerName.trim()) {
+    if (behavior === 'required' && !reviewerName.trim()) {
       setSubmitError("Please enter your name.");
       return;
     }
@@ -624,7 +633,7 @@ export default function ReviewPage() {
                 brandColor={brandColor}
                 showTourGuide={property.optional_fields.tour_guide}
                 showUnitType={property.optional_fields.unit_type}
-                nameRequired={property.require_name_positive}
+                nameBehavior={getNameBehavior(property.name_requirement, rating)}
               />
 
               {/* Honeypot — hidden from real users, must stay empty */}
@@ -698,7 +707,7 @@ export default function ReviewPage() {
                 brandColor={brandColor}
                 showTourGuide={property.optional_fields.tour_guide}
                 showUnitType={property.optional_fields.unit_type}
-                nameRequired={property.require_name_negative}
+                nameBehavior={getNameBehavior(property.name_requirement, rating)}
               />
 
               {/* Honeypot — hidden from real users, must stay empty */}

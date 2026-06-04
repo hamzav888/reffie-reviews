@@ -63,8 +63,7 @@ export type Database = {
           review_flow_enabled: boolean
           review_prompt: string
           slug: string
-          require_name_positive: boolean
-          require_name_negative: boolean
+          name_requirement: string
         }
         Insert: {
           brand_color?: string
@@ -78,8 +77,7 @@ export type Database = {
           review_flow_enabled?: boolean
           review_prompt?: string
           slug: string
-          require_name_positive?: boolean
-          require_name_negative?: boolean
+          name_requirement?: string
         }
         Update: {
           brand_color?: string
@@ -93,8 +91,7 @@ export type Database = {
           review_flow_enabled?: boolean
           review_prompt?: string
           slug?: string
-          require_name_positive?: boolean
-          require_name_negative?: boolean
+          name_requirement?: string
         }
         Relationships: []
       }

@@ -10,7 +10,7 @@ export async function GET(
   const { data, error } = await supabase
     .from("properties")
     .select(
-      "id, name, slug, logo_url, brand_color, google_review_url, review_prompt, negative_prompt, optional_fields, review_flow_enabled, require_name_positive, require_name_negative"
+      "id, name, slug, logo_url, brand_color, google_review_url, review_prompt, negative_prompt, optional_fields, review_flow_enabled, name_requirement"
     )
     .eq("slug", params.slug)
     .single();

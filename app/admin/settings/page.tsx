@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
 import { useProperty } from "@/lib/property-context";
-import { Toggle } from "@/lib/components/Toggle";
 import type { Tables } from "@/lib/database.types";
 
 type PropertyRow = Tables<"properties">;
@@ -65,11 +64,8 @@ function PropertyForm({
   const [reviewFlowEnabled, setReviewFlowEnabled] = useState(
     initial?.review_flow_enabled ?? true
   );
-  const [requireNamePositive, setRequireNamePositive] = useState(
-    initial?.require_name_positive ?? true
-  );
-  const [requireNameNegative, setRequireNameNegative] = useState(
-    initial?.require_name_negative ?? true
+  const [nameRequirement, setNameRequirement] = useState(
+    initial?.name_requirement ?? 'required_all'
   );
 
   const [saving, setSaving] = useState(false);
@@ -102,8 +98,7 @@ function PropertyForm({
         unit_type: optUnitType,
       },
       review_flow_enabled: reviewFlowEnabled,
-      require_name_positive: requireNamePositive,
-      require_name_negative: requireNameNegative,
+      name_requirement: nameRequirement,
     };
 
     if (initial) {
@@ -392,19 +387,20 @@ function PropertyForm({
             Name Requirements
           </h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            When enabled, renters must enter their name before submitting.
+            Choose when renters must enter their name.
           </p>
         </div>
-        <Toggle
-          checked={requireNamePositive}
-          onChange={setRequireNamePositive}
-          label="Require name on positive reviews (4–5 stars)"
-        />
-        <Toggle
-          checked={requireNameNegative}
-          onChange={setRequireNameNegative}
-          label="Require name on negative reviews (1–3 stars)"
-        />
+        <select
+          value={nameRequirement}
+          onChange={(e) => setNameRequirement(e.target.value)}
+          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#10BD91]/20"
+        >
+          <option value="required_all">Required on all reviews</option>
+          <option value="required_positive">Required on positive only (4–5 stars)</option>
+          <option value="required_negative">Required on negative only (1–3 stars)</option>
+          <option value="optional_all">Optional on all reviews</option>
+          <option value="hidden">Hidden (don&apos;t ask for name)</option>
+        </select>
       </div>
 
       {/* ── Review Flow ── */}
