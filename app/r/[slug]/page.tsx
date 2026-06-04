@@ -147,6 +147,109 @@ function GooglePromptScreen({
   );
 }
 
+// ── Star Row ────────────────────────────────────────────────────────────────
+function StarRow({
+  rating,
+  isNegative,
+  brandColor,
+}: {
+  rating: number;
+  isNegative: boolean;
+  brandColor: string;
+}) {
+  return (
+    <div className="flex justify-center gap-1 mb-3">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <span
+          key={s}
+          className="text-2xl"
+          style={{
+            color: s <= rating ? (isNegative ? "#F59E0B" : brandColor) : "#E5E7EB",
+          }}
+        >
+          ★
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ── Optional Fields ──────────────────────────────────────────────────────────
+function OptionalFields({
+  reviewerName,
+  onReviewerNameChange,
+  tourGuide,
+  onTourGuideChange,
+  unitType,
+  onUnitTypeChange,
+  brandColor,
+  showTourGuide,
+  showUnitType,
+}: {
+  reviewerName: string;
+  onReviewerNameChange: (v: string) => void;
+  tourGuide: string;
+  onTourGuideChange: (v: string) => void;
+  unitType: string;
+  onUnitTypeChange: (v: string) => void;
+  brandColor: string;
+  showTourGuide: boolean;
+  showUnitType: boolean;
+}) {
+  return (
+    <>
+      <div>
+        <label className="text-xs font-medium text-gray-600 block mb-1">
+          Your Name
+        </label>
+        <input
+          type="text"
+          value={reviewerName}
+          onChange={(e) => onReviewerNameChange(e.target.value)}
+          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none"
+          onFocus={(e) => (e.target.style.boxShadow = `0 0 0 2px ${brandColor}33`)}
+          onBlur={(e) => (e.target.style.boxShadow = "")}
+        />
+      </div>
+
+      {showTourGuide && (
+        <div>
+          <label className="text-xs font-medium text-gray-600 block mb-1">
+            Tour Guide Name{" "}
+            <span className="font-normal text-gray-400">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={tourGuide}
+            onChange={(e) => onTourGuideChange(e.target.value)}
+            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none"
+            onFocus={(e) => (e.target.style.boxShadow = `0 0 0 2px ${brandColor}33`)}
+            onBlur={(e) => (e.target.style.boxShadow = "")}
+          />
+        </div>
+      )}
+
+      {showUnitType && (
+        <div>
+          <label className="text-xs font-medium text-gray-600 block mb-1">
+            Unit Type{" "}
+            <span className="font-normal text-gray-400">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={unitType}
+            onChange={(e) => onUnitTypeChange(e.target.value)}
+            placeholder="e.g. 1BR, Studio"
+            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none"
+            onFocus={(e) => (e.target.style.boxShadow = `0 0 0 2px ${brandColor}33`)}
+            onBlur={(e) => (e.target.style.boxShadow = "")}
+          />
+        </div>
+      )}
+    </>
+  );
+}
+
 // ── Main Review Page ────────────────────────────────────────────────────────
 export default function ReviewPage() {
   const params = useParams();
@@ -334,88 +437,6 @@ export default function ReviewPage() {
     );
   }
 
-  // ── Shared star row (small, read-only) ──
-  const StarRow = () => (
-    <div className="flex justify-center gap-1 mb-3">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <span
-          key={s}
-          className="text-2xl"
-          style={{
-            color:
-              s <= rating
-                ? screen === "2b"
-                  ? "#F59E0B"
-                  : brandColor
-                : "#E5E7EB",
-          }}
-        >
-          ★
-        </span>
-      ))}
-    </div>
-  );
-
-  // ── Shared optional fields ──
-  const OptionalFields = () => (
-    <>
-      <div>
-        <label className="text-xs font-medium text-gray-600 block mb-1">
-          Your Name
-        </label>
-        <input
-          type="text"
-          value={reviewerName}
-          onChange={(e) => setReviewerName(e.target.value)}
-          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none"
-          onFocus={(e) =>
-            (e.target.style.boxShadow = `0 0 0 2px ${brandColor}33`)
-          }
-          onBlur={(e) => (e.target.style.boxShadow = "")}
-        />
-      </div>
-
-      {property.optional_fields.tour_guide && (
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">
-            Tour Guide Name{" "}
-            <span className="font-normal text-gray-400">(optional)</span>
-          </label>
-          <input
-            type="text"
-            value={tourGuide}
-            onChange={(e) => setTourGuide(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none"
-            onFocus={(e) =>
-              (e.target.style.boxShadow = `0 0 0 2px ${brandColor}33`)
-            }
-            onBlur={(e) => (e.target.style.boxShadow = "")}
-          />
-        </div>
-      )}
-
-      {property.optional_fields.unit_type && (
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">
-            Unit Type{" "}
-            <span className="font-normal text-gray-400">(optional)</span>
-          </label>
-          <input
-            type="text"
-            value={unitType}
-            onChange={(e) => setUnitType(e.target.value)}
-            placeholder="e.g. 1BR, Studio"
-            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none"
-            onFocus={(e) =>
-              (e.target.style.boxShadow = `0 0 0 2px ${brandColor}33`)
-            }
-            onBlur={(e) => (e.target.style.boxShadow = "")}
-          />
-        </div>
-      )}
-    </>
-  );
-
   return (
     <div className="min-h-screen bg-[#FAF8F5] flex items-start justify-center py-10 px-4">
       <div className="w-full max-w-sm">
@@ -493,7 +514,7 @@ export default function ReviewPage() {
         {screen === "2a" && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
             <div className="text-center mb-6">
-              <StarRow />
+              <StarRow rating={rating} isNegative={false} brandColor={brandColor} />
               <h2 className="text-lg font-semibold text-gray-900">
                 Glad you had a great experience!
               </h2>
@@ -528,7 +549,17 @@ export default function ReviewPage() {
                 </p>
               </div>
 
-              <OptionalFields />
+              <OptionalFields
+                reviewerName={reviewerName}
+                onReviewerNameChange={setReviewerName}
+                tourGuide={tourGuide}
+                onTourGuideChange={setTourGuide}
+                unitType={unitType}
+                onUnitTypeChange={setUnitType}
+                brandColor={brandColor}
+                showTourGuide={property.optional_fields.tour_guide}
+                showUnitType={property.optional_fields.unit_type}
+              />
 
               {/* Honeypot — hidden from real users, must stay empty */}
               <input
@@ -568,7 +599,7 @@ export default function ReviewPage() {
         {screen === "2b" && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
             <div className="text-center mb-6">
-              <StarRow />
+              <StarRow rating={rating} isNegative={true} brandColor={brandColor} />
               <h2 className="text-lg font-semibold text-gray-900">
                 We appreciate your honesty
               </h2>
@@ -591,7 +622,17 @@ export default function ReviewPage() {
                 />
               </div>
 
-              <OptionalFields />
+              <OptionalFields
+                reviewerName={reviewerName}
+                onReviewerNameChange={setReviewerName}
+                tourGuide={tourGuide}
+                onTourGuideChange={setTourGuide}
+                unitType={unitType}
+                onUnitTypeChange={setUnitType}
+                brandColor={brandColor}
+                showTourGuide={property.optional_fields.tour_guide}
+                showUnitType={property.optional_fields.unit_type}
+              />
 
               {/* Honeypot — hidden from real users, must stay empty */}
               <input
