@@ -26,6 +26,18 @@ export const updateGoogleStatusSchema = z.object({
   redirected_to_google: z.boolean().optional(),
 });
 
+// Full create+complete review (no partial row — name-required flows)
+export const createCompleteReviewSchema = z.object({
+  property_id: z.string().uuid(),
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().trim().max(1000).optional().default(""),
+  reviewer_name: z.string().trim().max(100).optional().default(""),
+  tour_guide: z.string().trim().max(100).optional().default(""),
+  unit_type: z.string().trim().max(100).optional().default(""),
+  ai_generated_comment: z.string().trim().max(1000).optional().default(""),
+  honeypot: z.string().max(0).optional(),
+});
+
 // Share outcome update
 export const updateShareOutcomeSchema = z.object({
   review_id: z.string().uuid(),
@@ -54,6 +66,8 @@ export interface Property {
     unit_type: boolean;
   };
   review_flow_enabled: boolean;
+  require_name_positive: boolean;
+  require_name_negative: boolean;
 }
 
 export interface Review {

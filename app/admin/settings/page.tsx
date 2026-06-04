@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createBrowserClient } from "@/lib/supabase";
 import { useProperty } from "@/lib/property-context";
+import { Toggle } from "@/lib/components/Toggle";
 import type { Tables } from "@/lib/database.types";
 
 type PropertyRow = Tables<"properties">;
@@ -64,6 +65,12 @@ function PropertyForm({
   const [reviewFlowEnabled, setReviewFlowEnabled] = useState(
     initial?.review_flow_enabled ?? true
   );
+  const [requireNamePositive, setRequireNamePositive] = useState(
+    initial?.require_name_positive ?? true
+  );
+  const [requireNameNegative, setRequireNameNegative] = useState(
+    initial?.require_name_negative ?? true
+  );
 
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -95,6 +102,8 @@ function PropertyForm({
         unit_type: optUnitType,
       },
       review_flow_enabled: reviewFlowEnabled,
+      require_name_positive: requireNamePositive,
+      require_name_negative: requireNameNegative,
     };
 
     if (initial) {
@@ -374,6 +383,28 @@ function PropertyForm({
             <span className="text-sm text-gray-700">{label}</span>
           </label>
         ))}
+      </div>
+
+      {/* ── Name Requirements ── */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold text-gray-700">
+            Name Requirements
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            When enabled, renters must enter their name before submitting.
+          </p>
+        </div>
+        <Toggle
+          checked={requireNamePositive}
+          onChange={setRequireNamePositive}
+          label="Require name on positive reviews (4–5 stars)"
+        />
+        <Toggle
+          checked={requireNameNegative}
+          onChange={setRequireNameNegative}
+          label="Require name on negative reviews (1–3 stars)"
+        />
       </div>
 
       {/* ── Review Flow ── */}

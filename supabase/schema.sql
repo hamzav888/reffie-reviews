@@ -18,7 +18,9 @@ CREATE TABLE properties (
   review_prompt TEXT NOT NULL DEFAULT 'What did you enjoy most about your tour?',
   negative_prompt TEXT NOT NULL DEFAULT 'What could we do better?',
   optional_fields JSONB NOT NULL DEFAULT '{"name": true, "tour_guide": false, "unit_type": false}',
-  review_flow_enabled BOOLEAN NOT NULL DEFAULT true
+  review_flow_enabled BOOLEAN NOT NULL DEFAULT true,
+  require_name_positive BOOLEAN NOT NULL DEFAULT true,
+  require_name_negative BOOLEAN NOT NULL DEFAULT true
 );
 
 -- ============================================

@@ -185,6 +185,7 @@ function OptionalFields({
   brandColor,
   showTourGuide,
   showUnitType,
+  nameRequired,
 }: {
   reviewerName: string;
   onReviewerNameChange: (v: string) => void;
@@ -195,12 +196,15 @@ function OptionalFields({
   brandColor: string;
   showTourGuide: boolean;
   showUnitType: boolean;
+  nameRequired: boolean;
 }) {
   return (
     <>
       <div>
         <label className="text-xs font-medium text-gray-600 block mb-1">
-          Your Name
+          Your Name{!nameRequired && (
+            <span className="font-normal text-gray-400"> (optional)</span>
+          )}
         </label>
         <input
           type="text"
@@ -303,9 +307,41 @@ export default function ReviewPage() {
   const handleStarTap = async (star: number) => {
     if (starSubmitting || !property) return;
     setRating(star);
-    setStarSubmitting(true);
     setSubmitError(null);
 
+    const requireName =
+      star >= 4
+        ? property.require_name_positive
+        : property.require_name_negative;
+
+    if (requireName) {
+      // Skip partial save — navigate directly to the form screen
+      if (star >= 4) {
+        setScreen("2a");
+        setCommentLoading(true);
+        try {
+          const genRes = await fetch("/api/generate-review", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ rating: star }),
+          });
+          if (genRes.ok) {
+            const { comment: suggested } = await genRes.json();
+            setSuggestedComment(suggested);
+          }
+        } catch {
+          // Silent fail — renter can type their own comment
+        } finally {
+          setCommentLoading(false);
+        }
+      } else {
+        setScreen("2b");
+      }
+      return; // reviewId stays null
+    }
+
+    // Name NOT required — create partial review row immediately
+    setStarSubmitting(true);
     try {
       const res = await fetch("/api/reviews", {
         method: "POST",
@@ -324,7 +360,6 @@ export default function ReviewPage() {
 
       if (star >= 4) {
         setScreen("2a");
-        // Fetch suggested comment while renter reads the screen
         setCommentLoading(true);
         try {
           const genRes = await fetch("/api/generate-review", {
@@ -354,9 +389,14 @@ export default function ReviewPage() {
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!reviewId || submitting) return;
+    if (!property || submitting) return;
 
-    if (!reviewerName.trim()) {
+    const requireName =
+      rating >= 4
+        ? property.require_name_positive
+        : property.require_name_negative;
+
+    if (requireName && !reviewerName.trim()) {
       setSubmitError("Please enter your name.");
       return;
     }
@@ -365,18 +405,43 @@ export default function ReviewPage() {
     setSubmitError(null);
 
     try {
-      const res = await fetch("/api/reviews", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          review_id: reviewId,
-          comment,
-          reviewer_name: reviewerName,
-          tour_guide: tourGuide,
-          unit_type: unitType,
-          ai_generated_comment: suggestedComment,
-        }),
-      });
+      let res: Response;
+
+      if (reviewId) {
+        // Partial row exists — update it
+        res = await fetch("/api/reviews", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            review_id: reviewId,
+            comment,
+            reviewer_name: reviewerName,
+            tour_guide: tourGuide,
+            unit_type: unitType,
+            ai_generated_comment: suggestedComment,
+          }),
+        });
+      } else {
+        // No partial row — create complete review in one shot
+        res = await fetch("/api/reviews", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            property_id: property.id,
+            rating,
+            comment,
+            reviewer_name: reviewerName,
+            tour_guide: tourGuide,
+            unit_type: unitType,
+            ai_generated_comment: suggestedComment,
+            honeypot,
+          }),
+        });
+        if (res.ok) {
+          const { reviewId: id } = await res.json();
+          setReviewId(id); // needed for Google tracking on screen 3
+        }
+      }
 
       if (!res.ok) {
         setSubmitError("Something went wrong. Please try again.");
@@ -559,6 +624,7 @@ export default function ReviewPage() {
                 brandColor={brandColor}
                 showTourGuide={property.optional_fields.tour_guide}
                 showUnitType={property.optional_fields.unit_type}
+                nameRequired={property.require_name_positive}
               />
 
               {/* Honeypot — hidden from real users, must stay empty */}
@@ -632,6 +698,7 @@ export default function ReviewPage() {
                 brandColor={brandColor}
                 showTourGuide={property.optional_fields.tour_guide}
                 showUnitType={property.optional_fields.unit_type}
+                nameRequired={property.require_name_negative}
               />
 
               {/* Honeypot — hidden from real users, must stay empty */}

@@ -169,6 +169,8 @@ export async function POST(req: Request) {
         unit_type: false,
       },
       review_flow_enabled: (body.review_flow_enabled as boolean) ?? true,
+      require_name_positive: (body.require_name_positive as boolean) ?? true,
+      require_name_negative: (body.require_name_negative as boolean) ?? true,
     };
 
     if (!payload.name || !payload.slug) {

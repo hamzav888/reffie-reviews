@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 import {
   createPartialReviewSchema,
+  createCompleteReviewSchema,
   completeReviewSchema,
   updateGoogleStatusSchema,
   updateShareOutcomeSchema,
@@ -33,6 +34,64 @@ export async function POST(request: Request) {
   }
 
   const supabase = createServiceClient();
+
+  // ── Full create+complete (name-required flows — no partial row) ──────────────
+  // Checked before the partial-create branch because this payload also has property_id
+  if ("property_id" in body && "comment" in body) {
+    if (body.honeypot) {
+      return NextResponse.json({ reviewId: "honeypot" }, { status: 200 });
+    }
+
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      "unknown";
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
+    const parsed = createCompleteReviewSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const {
+      property_id,
+      rating,
+      comment,
+      reviewer_name,
+      tour_guide,
+      unit_type,
+      ai_generated_comment,
+    } = parsed.data;
+
+    const { data, error } = await supabase
+      .from("reviews")
+      .insert({
+        property_id,
+        rating,
+        stage: "tour",
+        comment: comment || null,
+        reviewer_name: reviewer_name || null,
+        tour_guide: tour_guide || null,
+        unit_type: unit_type || null,
+        ai_generated_comment: ai_generated_comment || null,
+        is_complete: true,
+      })
+      .select("id")
+      .single();
+
+    if (error || !data) {
+      return NextResponse.json(
+        { error: "Failed to create review" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ reviewId: data.id });
+  }
 
   // ── Step 1: Create partial review (star tap) ──────────────────────────────
   if ("property_id" in body) {
