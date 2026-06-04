@@ -111,6 +111,7 @@ export type Database = {
           stage: string
           tour_guide: string | null
           unit_type: string | null
+          share_outcome: string | null
         }
         Insert: {
           ai_generated_comment?: string | null
@@ -130,6 +131,7 @@ export type Database = {
           stage?: string
           tour_guide?: string | null
           unit_type?: string | null
+          share_outcome?: string | null
         }
         Update: {
           ai_generated_comment?: string | null
@@ -149,6 +151,7 @@ export type Database = {
           stage?: string
           tour_guide?: string | null
           unit_type?: string | null
+          share_outcome?: string | null
         }
         Relationships: [
           {

@@ -280,7 +280,15 @@ export default function ReviewsPage() {
                       {review.unit_type ?? "—"}
                     </td>
                     <td className="px-4 py-3">
-                      {review.google_clicked ? (
+                      {review.share_outcome === "confirmed" ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 whitespace-nowrap">
+                          Posted ✓
+                        </span>
+                      ) : review.share_outcome === "failed" ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700 whitespace-nowrap">
+                          Didn&apos;t post
+                        </span>
+                      ) : review.google_clicked ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700 whitespace-nowrap">
                           Shared
                         </span>

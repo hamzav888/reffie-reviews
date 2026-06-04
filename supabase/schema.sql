@@ -41,7 +41,8 @@ CREATE TABLE reviews (
   google_comment_copied TEXT,
   is_complete BOOLEAN NOT NULL DEFAULT false,
   is_archived BOOLEAN NOT NULL DEFAULT false,
-  honeypot TEXT
+  honeypot TEXT,
+  share_outcome TEXT CHECK (share_outcome IN ('confirmed', 'failed'))
 );
 
 -- ============================================

@@ -310,7 +310,15 @@ export default function DashboardPage() {
                         : "—"}
                     </td>
                     <td className="px-6 py-3">
-                      {review.google_clicked ? (
+                      {review.share_outcome === "confirmed" ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">
+                          Posted ✓
+                        </span>
+                      ) : review.share_outcome === "failed" ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 text-red-700">
+                          Didn&apos;t post
+                        </span>
+                      ) : review.google_clicked ? (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-700">
                           Shared
                         </span>

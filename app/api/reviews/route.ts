@@ -4,6 +4,7 @@ import {
   createPartialReviewSchema,
   completeReviewSchema,
   updateGoogleStatusSchema,
+  updateShareOutcomeSchema,
 } from "@/lib/validation";
 
 // In-memory rate limiting (per serverless instance; resets on cold start)
@@ -115,6 +116,24 @@ export async function POST(request: Request) {
       );
     }
 
+    return NextResponse.json({ success: true });
+  }
+
+  // ── Share outcome update ──────────────────────────────────────────────────
+  // Must be checked before "review_id" since this payload also contains review_id
+  if ("share_outcome" in body) {
+    const parsed = updateShareOutcomeSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+    }
+    const { review_id, share_outcome } = parsed.data;
+    const { error } = await supabase
+      .from("reviews")
+      .update({ share_outcome })
+      .eq("id", review_id);
+    if (error) {
+      return NextResponse.json({ error: "Failed to update share outcome" }, { status: 500 });
+    }
     return NextResponse.json({ success: true });
   }
 

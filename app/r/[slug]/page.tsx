@@ -23,6 +23,7 @@ function GooglePromptScreen({
 }) {
   const [copied, setCopied] = useState(false);
   const [btnHover, setBtnHover] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   useEffect(() => {
     // Auto-copy the submitted comment to clipboard
@@ -59,6 +60,17 @@ function GooglePromptScreen({
       }).catch(() => {});
     }
     window.open(googleReviewUrl, "_blank", "noopener,noreferrer");
+    setShowConfirmation(true);
+  };
+
+  const handleShareOutcome = (outcome: "confirmed" | "failed") => {
+    if (reviewId !== "honeypot") {
+      fetch("/api/reviews", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ review_id: reviewId, share_outcome: outcome }),
+      }).catch(() => {});
+    }
     onDone();
   };
 
@@ -90,22 +102,47 @@ function GooglePromptScreen({
         </p>
       )}
 
-      <button
-        onClick={handleShareOnGoogle}
-        onMouseEnter={() => setBtnHover(true)}
-        onMouseLeave={() => setBtnHover(false)}
-        className="w-full min-h-[48px] py-3 rounded-xl text-white font-bold text-sm mb-3 transition-opacity"
-        style={{ backgroundColor: brandColor, opacity: btnHover ? 0.85 : 1 }}
-      >
-        Share on Google
-      </button>
+      {showConfirmation ? (
+        <div className="space-y-3 mt-2">
+          <p className="text-sm font-medium text-gray-700">
+            Did your review post on Google?
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => handleShareOutcome("confirmed")}
+              className="flex-1 min-h-[48px] py-3 rounded-xl text-white font-semibold text-sm"
+              style={{ backgroundColor: brandColor }}
+            >
+              Yes
+            </button>
+            <button
+              onClick={() => handleShareOutcome("failed")}
+              className="flex-1 min-h-[48px] py-3 rounded-xl text-gray-700 font-semibold text-sm bg-white border border-gray-200 hover:bg-gray-50 transition-colors"
+            >
+              No
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <button
+            onClick={handleShareOnGoogle}
+            onMouseEnter={() => setBtnHover(true)}
+            onMouseLeave={() => setBtnHover(false)}
+            className="w-full min-h-[48px] py-3 rounded-xl text-white font-bold text-sm mb-3 transition-opacity"
+            style={{ backgroundColor: brandColor, opacity: btnHover ? 0.85 : 1 }}
+          >
+            Share on Google
+          </button>
 
-      <button
-        onClick={onDone}
-        className="w-full min-h-[48px] py-2 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors"
-      >
-        Maybe later
-      </button>
+          <button
+            onClick={onDone}
+            className="w-full min-h-[48px] py-2 text-sm font-medium text-gray-500 bg-white border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors"
+          >
+            Maybe later
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -215,6 +252,12 @@ export default function ReviewPage() {
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!reviewId || submitting) return;
+
+    if (!reviewerName.trim()) {
+      setSubmitError("Please enter your name.");
+      return;
+    }
+
     setSubmitting(true);
     setSubmitError(null);
 
@@ -316,24 +359,21 @@ export default function ReviewPage() {
   // ── Shared optional fields ──
   const OptionalFields = () => (
     <>
-      {property.optional_fields.name && (
-        <div>
-          <label className="text-xs font-medium text-gray-600 block mb-1">
-            Your Name{" "}
-            <span className="font-normal text-gray-400">(optional)</span>
-          </label>
-          <input
-            type="text"
-            value={reviewerName}
-            onChange={(e) => setReviewerName(e.target.value)}
-            className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none"
-            onFocus={(e) =>
-              (e.target.style.boxShadow = `0 0 0 2px ${brandColor}33`)
-            }
-            onBlur={(e) => (e.target.style.boxShadow = "")}
-          />
-        </div>
-      )}
+      <div>
+        <label className="text-xs font-medium text-gray-600 block mb-1">
+          Your Name
+        </label>
+        <input
+          type="text"
+          value={reviewerName}
+          onChange={(e) => setReviewerName(e.target.value)}
+          className="w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm focus:outline-none"
+          onFocus={(e) =>
+            (e.target.style.boxShadow = `0 0 0 2px ${brandColor}33`)
+          }
+          onBlur={(e) => (e.target.style.boxShadow = "")}
+        />
+      </div>
 
       {property.optional_fields.tour_guide && (
         <div>

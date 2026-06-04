@@ -26,6 +26,12 @@ export const updateGoogleStatusSchema = z.object({
   redirected_to_google: z.boolean().optional(),
 });
 
+// Share outcome update
+export const updateShareOutcomeSchema = z.object({
+  review_id: z.string().uuid(),
+  share_outcome: z.enum(["confirmed", "failed"]),
+});
+
 // AI review generation request
 export const generateReviewSchema = z.object({
   rating: z.number().int().min(4).max(5),
@@ -66,4 +72,5 @@ export interface Review {
   google_clicked: boolean;
   google_comment_copied: string | null;
   is_complete: boolean;
+  share_outcome?: string | null;
 }
