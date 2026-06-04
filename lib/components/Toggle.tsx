@@ -20,12 +20,12 @@ export function Toggle({
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 ${
+        className={`w-10 h-6 rounded-full transition-colors relative flex-shrink-0 p-0 border-0 ${
           checked ? "bg-[#10BD91]" : "bg-gray-300"
         }`}
       >
         <span
-          className={`absolute w-4 h-4 bg-white rounded-full shadow transition-transform ${
+          className={`absolute top-1 left-0 w-4 h-4 bg-white rounded-full shadow transition-transform ${
             checked ? "translate-x-5" : "translate-x-1"
           }`}
         />
